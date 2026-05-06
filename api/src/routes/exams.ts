@@ -5,6 +5,7 @@ import type { TestCode } from '@esat/shared-types';
 import { query } from '../db.js';
 import { writeBytes } from '../storage.js';
 import { ingestExam } from '../services/ingest.js';
+import { categoriseExam } from '../services/categorise-exam.js';
 import { SECTIONS_BY_TEST } from '../sections.js';
 
 export const exams = Router();
@@ -144,6 +145,26 @@ exams.post(
     }
   },
 );
+
+// Run the Gemini categoriser across every question on the exam.
+// `?force=1` re-categorises questions that already have a topic_id set.
+exams.post('/:id/categorise', async (req, res, next) => {
+  try {
+    const exam = await query<{ id: string }>(
+      `SELECT id FROM exams WHERE id = $1`,
+      [req.params.id],
+    );
+    if (exam.rowCount === 0) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const force = req.query.force === '1' || req.query.force === 'true';
+    const summary = await categoriseExam(req.params.id, { onlyMissing: !force });
+    res.json(summary);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Retry/rerun the extract pipeline for an exam that's already had its PDFs
 // uploaded. Useful when heuristics get tuned and we want to re-clip without
