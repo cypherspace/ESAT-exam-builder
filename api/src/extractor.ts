@@ -2,23 +2,29 @@ import { request } from 'undici';
 
 const baseUrl = process.env.EXTRACTOR_URL ?? 'http://localhost:8081';
 
+import type { AnswerKey, SectionCode, TestCode } from '@esat/shared-types';
+
 export interface ExtractMsRequest {
   ms_uri: string;
+  default_section?: SectionCode;
 }
 
 export interface ExtractMsResponse {
-  answer_key: Record<string, 'A' | 'B' | 'C' | 'D' | 'E'>;
+  /** {section_code: {q_num: 'A'..'E'}} */
+  answer_key: Partial<Record<SectionCode, Record<string, AnswerKey>>>;
   warnings: string[];
 }
 
 export interface ExtractRequest {
   exam_id: string;
-  test_code: 'ESAT' | 'ENGAA' | 'NSAA';
+  test_code: TestCode;
   qp_uri: string;
   ms_uri: string | null;
+  default_section?: SectionCode;
 }
 
 export interface ExtractedQuestion {
+  section_code: SectionCode;
   number: number;
   page_index: number;
   bbox: [number, number, number, number];
@@ -28,8 +34,9 @@ export interface ExtractedQuestion {
 
 export interface ExtractResponse {
   exam_id: string;
+  test_code: TestCode;
   questions: ExtractedQuestion[];
-  answer_key: Record<string, 'A' | 'B' | 'C' | 'D' | 'E'>;
+  answer_key: Partial<Record<SectionCode, Record<string, AnswerKey>>>;
   warnings: string[];
 }
 

@@ -15,7 +15,10 @@ export function Upload() {
 
   const mutation = useMutation({
     mutationFn: api.uploadExam,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['exams'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['exams'] });
+      window.dispatchEvent(new CustomEvent('esat:exam-uploaded'));
+    },
   });
 
   function onSubmit(e: FormEvent<HTMLFormElement>) {

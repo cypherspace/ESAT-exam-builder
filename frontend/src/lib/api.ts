@@ -43,7 +43,16 @@ export const api = {
   exams: (page = 1, limit = 50) =>
     request<Paginated<Exam>>(`/api/v1/exams?page=${page}&limit=${limit}`),
 
-  exam: (id: string) => request<Exam>(`/api/v1/exams/${id}`),
+  exam: (id: string) =>
+    request<Exam & { sections: { id: string; code: SectionCode; question_count: number }[] }>(
+      `/api/v1/exams/${id}`,
+    ),
+
+  retryExtract: (id: string) =>
+    request<{ questions_inserted: number; warnings: string[] }>(
+      `/api/v1/exams/${id}/extract`,
+      { method: 'POST', body: '{}' },
+    ),
 
   uploadExam: async (input: {
     test_code: TestCode;

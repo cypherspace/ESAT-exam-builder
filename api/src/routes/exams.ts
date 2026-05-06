@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { TestCode } from '@esat/shared-types';
 import { query } from '../db.js';
 import { writeBytes } from '../storage.js';
-import { extractor } from '../extractor.js';
+import { ingestExam } from '../services/ingest.js';
 import { SECTIONS_BY_TEST } from '../sections.js';
 
 export const exams = Router();
@@ -18,6 +18,9 @@ const UploadBody = z.object({
   test_code: z.enum(['ESAT', 'ENGAA', 'NSAA']),
   year: z.coerce.number().int().min(2000).max(2100),
   sitting: z.string().min(1).max(40),
+  default_section: z
+    .enum(['MATHS1', 'MATHS2', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'ADV_MATHS'])
+    .optional(),
 });
 
 interface ExamRow {
@@ -95,7 +98,7 @@ exams.post(
         return;
       }
 
-      const { test_code, year, sitting } = parsed.data;
+      const { test_code, year, sitting, default_section } = parsed.data;
       const slug = `${test_code}/${year}/${sitting}`.toLowerCase().replace(/\s+/g, '_');
       const qpUri = await writeBytes(`exams/${slug}/qp.pdf`, qp.buffer);
       const msUri = ms ? await writeBytes(`exams/${slug}/ms.pdf`, ms.buffer) : null;
@@ -122,13 +125,18 @@ exams.post(
         );
       }
 
-      // Phase 1: parse the answer key now if we got an MS. The full clip
-      // pipeline (Phase 2) will run separately.
-      if (msUri) {
-        runMsParse(exam.id, msUri).catch((err: unknown) => {
-          console.error(`[exams.upload] ms parse failed for ${exam.id}:`, err);
-        });
-      }
+      // Fire-and-forget: full extract pipeline (clip + answer-key parse +
+      // persist questions). Status moves through 'extracting' -> 'ready' /
+      // 'error'. Clients poll GET /exams/:id to watch.
+      ingestExam({
+        examId: exam.id,
+        testCode: test_code,
+        qpUri,
+        msUri,
+        defaultSection: default_section,
+      }).catch((err: unknown) => {
+        console.error(`[exams.upload] ingest failed for ${exam.id}:`, err);
+      });
 
       res.status(201).json(exam);
     } catch (err) {
@@ -137,33 +145,28 @@ exams.post(
   },
 );
 
-async function runMsParse(examId: string, msUri: string): Promise<void> {
-  await query(`UPDATE exams SET status = 'extracting' WHERE id = $1`, [examId]);
+// Retry/rerun the extract pipeline for an exam that's already had its PDFs
+// uploaded. Useful when heuristics get tuned and we want to re-clip without
+// re-uploading the PDFs.
+exams.post('/:id/extract', async (req, res, next) => {
   try {
-    const { answer_key, warnings } = await extractor.extractMs({ ms_uri: msUri });
-    if (warnings.length > 0) {
-      console.warn(`[ms-parse ${examId}] warnings:`, warnings);
-    }
-    // Stash the keyed answers on the exam row metadata for now; questions
-    // get their answer_key column populated in Phase 2 once clipping runs.
-    await query(
-      `UPDATE exams SET status = 'ready' WHERE id = $1 AND status = 'extracting'`,
-      [examId],
+    const exam = await query<ExamRow>(
+      `SELECT id, test_code, source_pdf_path, ms_pdf_path FROM exams WHERE id = $1`,
+      [req.params.id],
     );
-    await stashAnswerKey(examId, answer_key);
+    const row = exam.rows[0];
+    if (!row) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const out = await ingestExam({
+      examId: row.id,
+      testCode: row.test_code,
+      qpUri: row.source_pdf_path,
+      msUri: row.ms_pdf_path,
+    });
+    res.json(out);
   } catch (err) {
-    await query(`UPDATE exams SET status = 'error' WHERE id = $1`, [examId]);
-    throw err;
+    next(err);
   }
-}
-
-async function stashAnswerKey(
-  examId: string,
-  key: Record<string, 'A' | 'B' | 'C' | 'D' | 'E'>,
-): Promise<void> {
-  // We don't have a column for raw MS answer keys yet; store them on the
-  // sections rows as a question_count placeholder is not appropriate, so
-  // for Phase 1 we just log. Phase 2 clipper will INSERT into questions
-  // with the answer_key column set from this same extractor response.
-  console.log(`[ms-parse ${examId}] parsed ${Object.keys(key).length} answers`);
-}
+});
