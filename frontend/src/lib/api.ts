@@ -1,10 +1,15 @@
 import type {
+  AnswerKey,
+  Difficulty,
+  DraftItem,
   Exam,
+  Flag,
+  PaperDraft,
   Paginated,
   Question,
-  Topic,
-  TestCode,
   SectionCode,
+  TestCode,
+  Topic,
 } from '@esat/shared-types';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
@@ -18,6 +23,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 401) {
     window.dispatchEvent(new CustomEvent('esat:unauthorized'));
   }
+  if (res.status === 204) return undefined as T;
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`${res.status} ${res.statusText}${text ? `: ${text}` : ''}`);
@@ -32,6 +38,25 @@ export interface QuestionListItem extends Question {
   sitting: string;
 }
 
+export interface QuestionFilter {
+  test_code?: TestCode;
+  section?: SectionCode;
+  topic_id?: string;
+  year?: number;
+  difficulty_min?: Difficulty;
+  difficulty_max?: Difficulty;
+  page?: number;
+  limit?: number;
+}
+
+function buildQs(filter: QuestionFilter): URLSearchParams {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(filter)) {
+    if (v !== undefined && v !== null && v !== '') qs.set(k, String(v));
+  }
+  return qs;
+}
+
 export const api = {
   me: () => request<{ id: string; email: string; role: string }>('/api/v1/auth/me'),
 
@@ -44,15 +69,26 @@ export const api = {
     request<Paginated<Exam>>(`/api/v1/exams?page=${page}&limit=${limit}`),
 
   exam: (id: string) =>
-    request<Exam & { sections: { id: string; code: SectionCode; question_count: number }[] }>(
-      `/api/v1/exams/${id}`,
-    ),
+    request<
+      Exam & { sections: { id: string; code: SectionCode; question_count: number }[] }
+    >(`/api/v1/exams/${id}`),
 
   retryExtract: (id: string) =>
     request<{ questions_inserted: number; warnings: string[] }>(
       `/api/v1/exams/${id}/extract`,
       { method: 'POST', body: '{}' },
     ),
+
+  categoriseExam: (id: string, force = false) =>
+    request<{
+      total: number;
+      categorised: number;
+      skipped: number;
+      failed: { question_id: string; error: string }[];
+    }>(`/api/v1/exams/${id}/categorise${force ? '?force=1' : ''}`, {
+      method: 'POST',
+      body: '{}',
+    }),
 
   uploadExam: async (input: {
     test_code: TestCode;
@@ -79,8 +115,72 @@ export const api = {
     return (await res.json()) as Exam;
   },
 
-  questions: (qs: URLSearchParams) =>
-    request<Paginated<QuestionListItem>>(`/api/v1/questions?${qs.toString()}`),
+  questions: (filter: QuestionFilter) =>
+    request<Paginated<QuestionListItem>>(`/api/v1/questions?${buildQs(filter).toString()}`),
+
+  question: (id: string) => request<QuestionListItem>(`/api/v1/questions/${id}`),
+
+  patchQuestion: (
+    id: string,
+    patch: Partial<{
+      topic_id: string | null;
+      difficulty: Difficulty | null;
+      summary: string | null;
+      keywords: string[];
+      answer_key: AnswerKey | null;
+    }>,
+  ) =>
+    request<Question>(`/api/v1/questions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+
+  flagQuestion: (id: string, note: string) =>
+    request<Flag>(`/api/v1/questions/${id}/flags`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+
+  drafts: () => request<{ data: PaperDraft[] }>('/api/v1/drafts'),
+
+  draft: (id: string) => request<PaperDraft>(`/api/v1/drafts/${id}`),
+
+  createDraft: (body: {
+    name: string;
+    items?: DraftItem[];
+    time_limit_minutes?: number | null;
+    instructions?: string | null;
+  }) =>
+    request<PaperDraft>('/api/v1/drafts', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  patchDraft: (
+    id: string,
+    body: Partial<{
+      name: string;
+      items: DraftItem[];
+      time_limit_minutes: number | null;
+      instructions: string | null;
+    }>,
+  ) =>
+    request<PaperDraft>(`/api/v1/drafts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  deleteDraft: (id: string) =>
+    request<void>(`/api/v1/drafts/${id}`, { method: 'DELETE' }),
+
+  flags: (status?: 'open' | 'resolved' | 'dismissed') =>
+    request<{ data: Flag[] }>(`/api/v1/flags${status ? `?status=${status}` : ''}`),
+
+  patchFlag: (id: string, status: 'open' | 'resolved' | 'dismissed') =>
+    request<Flag>(`/api/v1/flags/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
 };
 
 export function fileUrl(uri: string): string {

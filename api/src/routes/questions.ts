@@ -109,10 +109,70 @@ questions.get('/:id', async (req, res, next) => {
   }
 });
 
-questions.patch('/:id', (_req, res) => {
-  res.status(501).json({ error: 'not_implemented', phase: 4 });
+const PatchBody = z.object({
+  topic_id: z.string().uuid().nullable().optional(),
+  difficulty: z.number().int().min(1).max(5).nullable().optional(),
+  summary: z.string().max(400).nullable().optional(),
+  keywords: z.array(z.string().max(40)).max(20).optional(),
+  answer_key: z.enum(['A', 'B', 'C', 'D', 'E']).nullable().optional(),
 });
 
-questions.post('/:id/flags', (_req, res) => {
-  res.status(501).json({ error: 'not_implemented', phase: 4 });
+questions.patch('/:id', async (req, res, next) => {
+  try {
+    const parsed = PatchBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'bad_request', issues: parsed.error.issues });
+      return;
+    }
+    const fields: string[] = [];
+    const params: unknown[] = [];
+    for (const key of [
+      'topic_id', 'difficulty', 'summary', 'keywords', 'answer_key',
+    ] as const) {
+      if (parsed.data[key] !== undefined) {
+        params.push(parsed.data[key]);
+        fields.push(`${key} = $${params.length}`);
+      }
+    }
+    if (fields.length === 0) {
+      res.status(400).json({ error: 'no_fields' });
+      return;
+    }
+    params.push(req.params.id);
+    const result = await query(
+      `UPDATE questions SET ${fields.join(', ')} WHERE id = $${params.length}
+       RETURNING id, section_id, number, image_path, ocr_text, answer_key,
+                 question_type, topic_id, difficulty, summary, keywords`,
+      params,
+    );
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const FlagBody = z.object({ note: z.string().min(1).max(2000) });
+
+questions.post('/:id/flags', async (req, res, next) => {
+  try {
+    const parsed = FlagBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'bad_request', issues: parsed.error.issues });
+      return;
+    }
+    const userId = process.env.ADMIN_USER_UUID ?? '00000000-0000-0000-0000-000000000001';
+    const result = await query(
+      `INSERT INTO flags (question_id, user_id, note)
+       VALUES ($1, $2, $3)
+       RETURNING id, question_id, user_id, note, status, created_at`,
+      [req.params.id, userId, parsed.data.note],
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
 });
