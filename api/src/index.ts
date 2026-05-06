@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express from 'express';
+import express, { type ErrorRequestHandler } from 'express';
 import cors from 'cors';
 import { exams } from './routes/exams.js';
 import { questions } from './routes/questions.js';
@@ -28,6 +28,13 @@ app.use('/api/v1/generate', generate);
 app.use('/api/v1/export', exportRouter);
 app.use('/api/v1/flags', flags);
 app.use('/files', files);
+
+const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+  console.error('[esat-api] error', err);
+  const status = typeof err?.statusCode === 'number' ? err.statusCode : 500;
+  res.status(status).json({ error: 'internal_error', message: String(err?.message ?? err) });
+};
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`[esat-api] listening on :${port}`);
