@@ -1,7 +1,11 @@
 {
-  "_note": "Topic taxonomy for ESAT/ENGAA/NSAA. Flat list per section. Source: official ESAT subject guides (Cambridge Assessment Admissions Testing).",
+  "_note": "Topic taxonomy for ESAT/ENGAA/NSAA. Flat list per section. Codes use a per-section letter prefix; tagged questions reference (section_code, code).",
   "_sources": {
-    "PHYSICS": "ESAT Guide — Physics (June 2025)"
+    "PHYSICS": "ESAT Guide — Physics (June 2025)",
+    "MATHS1": "User-supplied list, matches ESAT Mathematics 1 spec",
+    "MATHS2": "User-supplied list, matches ESAT Mathematics 2 spec; ENGAA / NSAA 'Advanced Mathematics' is folded into this section.",
+    "CHEMISTRY": "User-supplied list, matches ESAT Chemistry spec",
+    "BIOLOGY": "User-supplied list, matches ESAT Biology spec"
   },
   "sections": {
     "PHYSICS": [
@@ -13,10 +17,56 @@
       { "code": "P6", "name": "Waves" },
       { "code": "P7", "name": "Radioactivity" }
     ],
-    "MATHS1": [],
-    "MATHS2": [],
-    "CHEMISTRY": [],
-    "BIOLOGY": [],
-    "ADV_MATHS": []
+    "MATHS1": [
+      { "code": "M1", "name": "Units" },
+      { "code": "M2", "name": "Number" },
+      { "code": "M3", "name": "Ratio and proportion" },
+      { "code": "M4", "name": "Algebra" },
+      { "code": "M5", "name": "Geometry" },
+      { "code": "M6", "name": "Statistics" },
+      { "code": "M7", "name": "Probability" }
+    ],
+    "MATHS2": [
+      { "code": "N1", "name": "Algebra and functions" },
+      { "code": "N2", "name": "Sequences and series" },
+      { "code": "N3", "name": "Coordinate geometry in the x-y plane" },
+      { "code": "N4", "name": "Trigonometry" },
+      { "code": "N5", "name": "Exponentials and logarithms" },
+      { "code": "N6", "name": "Differentiation" },
+      { "code": "N7", "name": "Integration" },
+      { "code": "N8", "name": "Graphs of functions" }
+    ],
+    "CHEMISTRY": [
+      { "code": "C1", "name": "Atomic structure" },
+      { "code": "C2", "name": "The periodic table" },
+      { "code": "C3", "name": "Chemical reactions, formulae and equations" },
+      { "code": "C4", "name": "Quantitative chemistry" },
+      { "code": "C5", "name": "Oxidation, reduction and redox" },
+      { "code": "C6", "name": "Chemical bonding, structure and properties" },
+      { "code": "C7", "name": "Group chemistry" },
+      { "code": "C8", "name": "Separation techniques" },
+      { "code": "C9", "name": "Acids, bases and salts" },
+      { "code": "C10", "name": "Rates of reaction" },
+      { "code": "C11", "name": "Energetics" },
+      { "code": "C12", "name": "Electrolysis" },
+      { "code": "C13", "name": "Carbon / organic chemistry" },
+      { "code": "C14", "name": "Metals" },
+      { "code": "C15", "name": "Kinetic / particle theory" },
+      { "code": "C16", "name": "Chemical tests" },
+      { "code": "C17", "name": "Air and water" }
+    ],
+    "BIOLOGY": [
+      { "code": "B1", "name": "Cells" },
+      { "code": "B2", "name": "Movement across membranes" },
+      { "code": "B3", "name": "Cell division and sex determination" },
+      { "code": "B4", "name": "Inheritance" },
+      { "code": "B5", "name": "DNA" },
+      { "code": "B6", "name": "Gene technologies" },
+      { "code": "B7", "name": "Variation" },
+      { "code": "B8", "name": "Enzymes" },
+      { "code": "B9", "name": "Animal physiology" },
+      { "code": "B10", "name": "Ecosystems" },
+      { "code": "B11", "name": "Plant physiology" }
+    ]
   }
 }

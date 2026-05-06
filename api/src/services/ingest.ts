@@ -23,12 +23,16 @@ export async function ingestExam(args: IngestArgs): Promise<{
 }> {
   await query(`UPDATE exams SET status = 'extracting' WHERE id = $1`, [args.examId]);
   try {
+    // ESAT papers restart numbering at 1 in each section; ENGAA/NSAA bundle
+    // multiple subject sections in one paper with continuous numbering.
+    const continuous = args.testCode === 'ENGAA' || args.testCode === 'NSAA';
     const result = await extractor.extract({
       exam_id: args.examId,
       test_code: args.testCode,
       qp_uri: args.qpUri,
       ms_uri: args.msUri,
       default_section: args.defaultSection,
+      continuous_numbering: continuous,
     });
     const inserted = await persistQuestions(
       args.examId,
@@ -64,12 +68,27 @@ async function persistQuestions(
     [examId],
   );
 
+  // Build a section-agnostic fallback by number for ENGAA / NSAA mark
+  // schemes that don't print section headers (the parser dumps everything
+  // under MATHS1 by default). The first-write wins on duplicate numbers,
+  // which would only happen if a true ESAT MS bundles all sections.
+  const fallbackByNumber = new Map<string, AnswerKey>();
+  for (const sec of Object.values(answerKey)) {
+    if (!sec) continue;
+    for (const [n, a] of Object.entries(sec)) {
+      if (!fallbackByNumber.has(n)) fallbackByNumber.set(n, a);
+    }
+  }
+
   let inserted = 0;
   const counts = new Map<SectionCode, number>();
   for (const q of questions) {
     const sid = sectionId[q.section_code];
     if (!sid) continue; // section wasn't pre-seeded for this test_code; skip.
-    const ans = answerKey[q.section_code]?.[String(q.number)] ?? null;
+    const ans =
+      answerKey[q.section_code]?.[String(q.number)]
+      ?? fallbackByNumber.get(String(q.number))
+      ?? null;
     await query(
       `INSERT INTO questions (
          section_id, number, image_path, ocr_text, answer_key,

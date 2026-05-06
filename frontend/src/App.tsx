@@ -13,32 +13,42 @@ export function App() {
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.me(), retry: false });
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="border-b border-slate-200 bg-white px-6 py-3 flex items-center gap-6">
-        <h1 className="font-semibold">ESAT Exam Builder</h1>
-        <nav className="flex gap-4 text-sm flex-1">
-          <NavLink to="/" end className={navClass}>Library</NavLink>
-          <NavLink to="/drafts" className={navClass}>Drafts</NavLink>
-          <NavLink to="/builder" className={navClass}>Builder</NavLink>
-          <NavLink to="/generate" className={navClass}>Generate</NavLink>
-          <NavLink to="/upload" className={navClass}>Upload</NavLink>
+    <div className="flex h-screen flex-col">
+      <header className="flex items-center gap-4 bg-blue-600 px-4 py-2 text-white">
+        <h1 className="text-lg font-semibold">ESAT Exam Builder</h1>
+        <nav className="flex gap-3 text-sm">
+          <NavLink to="/builder" end className={navClass}>
+            Builder
+          </NavLink>
+          <NavLink to="/generate" className={navClass}>
+            Generate
+          </NavLink>
+          <NavLink to="/" end className={navClass}>
+            Library
+          </NavLink>
+          <NavLink to="/drafts" className={navClass}>
+            Drafts
+          </NavLink>
+          <NavLink to="/upload" className={navClass}>
+            Upload
+          </NavLink>
         </nav>
         {me.data && (
-          <div className="flex items-center gap-2 text-xs text-slate-600">
-            <span>{me.data.email}</span>
+          <div className="ml-auto flex items-center gap-3 text-sm">
+            <span className="opacity-90">{me.data.email}</span>
             <button
               onClick={async () => {
                 await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
                 window.location.href = '/login?manual=1';
               }}
-              className="text-blue-600 hover:underline"
+              className="rounded bg-blue-700 px-2 py-1 text-xs hover:bg-blue-800"
             >
               Sign out
             </button>
           </div>
         )}
       </header>
-      <main className="flex-1 p-6">
+      <main className="min-h-0 flex-1">
         <Routes>
           <Route path="/" element={<Library />} />
           <Route path="/drafts" element={<Drafts />} />
@@ -55,7 +65,5 @@ export function App() {
 }
 
 function navClass({ isActive }: { isActive: boolean }) {
-  return isActive
-    ? 'text-blue-600 font-medium'
-    : 'text-slate-600 hover:text-slate-900';
+  return isActive ? 'underline underline-offset-4' : 'opacity-80 hover:opacity-100';
 }

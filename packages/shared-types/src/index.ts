@@ -13,7 +13,11 @@ export type SectionCode =
   | 'BIOLOGY'
   | 'ADV_MATHS';
 
-export type AnswerKey = 'A' | 'B' | 'C' | 'D' | 'E';
+// Cambridge admissions papers can have questions with more than 5 options
+// (we've seen up to 8); the DB enum covers A–Z to match.
+export type AnswerKey =
+  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
+  | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z';
 
 export type QuestionType = 'multiple_choice' | 'short_answer' | 'structured';
 

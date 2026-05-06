@@ -3,13 +3,14 @@
  * Idempotent: ON CONFLICT (section_code, code) DO UPDATE SET name = EXCLUDED.name.
  */
 
-import 'dotenv/config';
 import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { config as loadEnv } from 'dotenv';
 import pg from 'pg';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+loadEnv({ path: resolve(__dirname, '../../../.env') });
 
 interface SyllabusTopic {
   code: string;

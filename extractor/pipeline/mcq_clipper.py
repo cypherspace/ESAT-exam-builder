@@ -67,14 +67,22 @@ def clip_mcq_questions(
     *,
     out_prefix: str,
     default_section: str | None = None,
+    continuous_numbering: bool = False,
 ) -> list[ClippedQuestion]:
     """Render per-question PNGs and return ClippedQuestion records.
 
     `out_prefix` is a storage key prefix (e.g. `exams/<exam_id>/clips`).
+    `continuous_numbering`: pass True for ENGAA/NSAA (one continuous Q1..QN
+    sequence across the paper); leave False for ESAT (each section restarts
+    at Q1).
     """
     import fitz
 
-    markers = detect_markers(pdf_path, default_section=default_section)
+    markers = detect_markers(
+        pdf_path,
+        default_section=default_section,
+        continuous_numbering=continuous_numbering,
+    )
     if not markers:
         return []
 

@@ -20,12 +20,15 @@ import re
 from typing import Iterable
 
 # Local import — avoid pulling in PyMuPDF at import time (used by tests).
+# Answer letter is broadened to A-Z because some Cambridge admissions
+# papers print MCQs with more than 5 options (we've seen up to 8 in
+# fixture review).
 _ROW_RE = re.compile(
     r"""^\s*
         (?:Q\.?\s*)?           # optional Q. or Q prefix
         (\d{1,3})              # question number
         \s*[\.\)\|\:]?\s*       # separator (dot, paren, pipe, colon)
-        ([A-Ea-e])             # answer letter (case-insensitive)
+        ([A-Za-z])             # answer letter (case-insensitive, broad range)
         \b
     """,
     re.VERBOSE,
@@ -64,10 +67,13 @@ def parse_answer_key(
                 active = code
                 break
 
+        # Try the per-line shape first ("12 C", "Q12 C", "12 | C").
+        matched_inline = False
         for line in page_text.splitlines():
             m = _ROW_RE.match(line)
             if not m:
                 continue
+            matched_inline = True
             n = int(m.group(1))
             a = m.group(2).upper()
             section_map = answers.setdefault(active, {})
@@ -75,6 +81,30 @@ def parse_answer_key(
                 conflicts.append((active, n, section_map[n], a))
                 continue
             section_map[n] = a
+
+        # Fallback: ENGAA / NSAA mark schemes print number and letter on
+        # separate lines (each digit and each answer is its own line in the
+        # extracted text). Pair adjacent number/letter lines.
+        if not matched_inline:
+            lines = [ln.strip() for ln in page_text.splitlines() if ln.strip()]
+            i = 0
+            while i < len(lines) - 1:
+                # 2016-19 papers print bare digits ("1"); 2020+ papers
+                # prefix the digit with "Q" ("Q1").
+                num_match = re.fullmatch(r"(?:Q\.?)?(\d{1,3})", lines[i])
+                ans_match = re.fullmatch(r"[A-Za-z]", lines[i + 1])
+                if num_match and ans_match:
+                    n = int(num_match.group(1))
+                    a = ans_match.group(0).upper()
+                    if 1 <= n <= 999:
+                        section_map = answers.setdefault(active, {})
+                        if n in section_map and section_map[n] != a:
+                            conflicts.append((active, n, section_map[n], a))
+                        else:
+                            section_map[n] = a
+                    i += 2
+                else:
+                    i += 1
 
     warnings: list[str] = []
     if not answers:

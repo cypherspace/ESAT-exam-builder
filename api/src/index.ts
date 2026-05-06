@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './bootstrap.js';
 import express, { type ErrorRequestHandler } from 'express';
 import cors from 'cors';
 import { exams } from './routes/exams.js';
@@ -14,7 +14,23 @@ import { files } from './routes/files.js';
 const app = express();
 const port = Number(process.env.PORT ?? 8082);
 
-app.use(cors({ origin: process.env.VITE_API_URL ?? true, credentials: true }));
+// CORS: allow the configured FRONTEND_URL plus any localhost dev port
+// (Vite hops 5173 → 5174 → … when earlier ports are taken). In production
+// pin via FRONTEND_URL only.
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      const allow = process.env.FRONTEND_URL;
+      if (allow && origin === allow) return cb(null, true);
+      if (process.env.NODE_ENV !== 'production' && /^http:\/\/localhost:\d+$/.test(origin)) {
+        return cb(null, true);
+      }
+      cb(new Error(`CORS: ${origin} not allowed`));
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json({ limit: '10mb' }));
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));

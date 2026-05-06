@@ -12,7 +12,17 @@ FastAPI app. Endpoints:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
+
+# Load the project-root .env so STORAGE_DIR (and any other settings) match
+# what the API uses. Must run before pipeline.* imports because storage.py
+# reads STORAGE_DIR at module-import time on first call.
+from dotenv import load_dotenv
+
+_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+if _ENV_PATH.exists():
+    load_dotenv(_ENV_PATH)
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
@@ -39,6 +49,10 @@ class ExtractRequest(BaseModel):
     qp_uri: str
     ms_uri: str | None = None
     default_section: str | None = None  # for single-section booklets
+    # ESAT papers restart numbering at 1 in each section; ENGAA/NSAA papers
+    # use continuous Q1..QN across the whole paper. The clipper needs to
+    # know which mode to apply when filtering candidates to strict 1..N.
+    continuous_numbering: bool = False
 
 
 class RenderRequest(BaseModel):
@@ -82,6 +96,7 @@ def extract(req: ExtractRequest) -> dict:
             qp_local,
             out_prefix=out_prefix,
             default_section=req.default_section,
+            continuous_numbering=req.continuous_numbering,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"clip_failed: {exc}")

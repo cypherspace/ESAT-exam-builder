@@ -46,15 +46,23 @@ export function Library() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid h-full grid-rows-[auto_1fr] gap-2 overflow-auto p-2">
       <ExamStrip
         exams={exams.data?.data ?? []}
         loading={exams.isLoading}
         error={exams.isError ? (exams.error as Error).message : null}
       />
 
-      <section className="grid gap-3">
-        <h2 className="text-xl font-semibold">Question Library</h2>
+      <section className="flex min-h-0 flex-col rounded border bg-white shadow-sm">
+        <header className="flex items-center justify-between bg-purple-700 px-3 py-2 text-white">
+          <h2 className="font-semibold">Question Library</h2>
+          {questions.data && (
+            <span className="text-xs opacity-80">
+              {questions.data.data.length} shown · {questions.data.meta.total} total
+            </span>
+          )}
+        </header>
+        <div className="flex-1 overflow-auto p-3">
         <div className="flex flex-wrap gap-2 text-sm">
           <Select<TestCode | ''>
             label="Test"
@@ -116,25 +124,22 @@ export function Library() {
         )}
         {questions.data && (
           <>
-            <p className="text-xs text-slate-500">
-              {questions.data.meta.total} matches
-              {questions.data.meta.total > questions.data.data.length
-                ? ` · showing ${questions.data.data.length}`
-                : ''}
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {questions.data.data.map((q) => (
                 <QuestionCard key={q.id} q={q} />
               ))}
             </div>
-            <Pagination
-              page={questions.data.meta.page}
-              limit={questions.data.meta.limit}
-              total={questions.data.meta.total}
-              onPage={(p) => setFilter((f) => ({ ...f, page: p }))}
-            />
+            <div className="mt-3">
+              <Pagination
+                page={questions.data.meta.page}
+                limit={questions.data.meta.limit}
+                total={questions.data.meta.total}
+                onPage={(p) => setFilter((f) => ({ ...f, page: p }))}
+              />
+            </div>
           </>
         )}
+        </div>
       </section>
     </div>
   );
@@ -149,27 +154,29 @@ export function Library() {
     error: string | null;
   }) {
     return (
-      <section className="grid gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-700">Ingested exams</h3>
-          {loading && <span className="text-xs text-slate-500">loading…</span>}
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex flex-wrap gap-2">
-          {exams.length === 0 && !loading && (
-            <span className="text-sm text-slate-500">None yet — head to Upload.</span>
-          )}
-          {exams.map((e) => (
-            <span
-              key={e.id}
-              className={`inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs ${STATUS_STYLE[e.status]}`}
-            >
-              <span className="font-medium text-slate-700">
-                {e.test_code} {e.year} {e.sitting}
+      <section className="rounded border bg-white shadow-sm">
+        <header className="flex items-center justify-between bg-purple-700 px-3 py-2 text-white">
+          <h2 className="font-semibold">Ingested exams</h2>
+          {loading && <span className="text-xs opacity-80">loading…</span>}
+        </header>
+        <div className="px-3 py-2">
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex flex-wrap gap-2">
+            {exams.length === 0 && !loading && (
+              <span className="text-sm text-slate-500">None yet — head to Upload.</span>
+            )}
+            {exams.map((e) => (
+              <span
+                key={e.id}
+                className={`inline-flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-xs ${STATUS_STYLE[e.status]}`}
+              >
+                <span className="font-medium text-slate-700">
+                  {e.test_code} {e.year} {e.sitting}
+                </span>
+                <span>· {e.status}</span>
               </span>
-              <span>· {e.status}</span>
-            </span>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
     );
