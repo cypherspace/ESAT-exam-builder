@@ -33,9 +33,13 @@ interface DraftRow {
   updated_at: string;
 }
 
-function ownerId(_req: unknown): string {
-  // Until Phase 6 auth lands, all draft writes belong to the dev admin user.
-  return process.env.ADMIN_USER_UUID ?? '00000000-0000-0000-0000-000000000001';
+import type { Request } from 'express';
+function ownerId(req: Request): string {
+  return (
+    req.user?.id ??
+    process.env.ADMIN_USER_UUID ??
+    '00000000-0000-0000-0000-000000000001'
+  );
 }
 
 drafts.get('/', async (req, res, next) => {

@@ -34,16 +34,16 @@ sessions(id, user_id, token, expires_at)
 |-------|-------|-------|
 | 0 — Bootstrap | ✅ done | Initial scaffold from CAIE transit copy. |
 | 1 — Schema + ingest skeleton | ✅ done | DB pool, storage helper (local + GCS), `/exams/upload`, `/files`, `/topics`, `/questions`, MS parser. |
-| 2 — MCQ clipper | 🟡 code-complete, needs fixture tuning | Section-aware marker detector + clipper land on the cloud branch; thresholds need tuning against real ESAT/ENGAA/NSAA PDFs. **Pick up here on local.** |
-| 3 — Gemini categoriser | ⏳ pending | |
-| 4 — Frontend (Library/Builder/Edit) | ⏳ pending | |
-| 5 — Export + Generate | ⏳ pending | |
-| 6 — Google OAuth | ⏳ pending | |
-| 7 — Hardening + UAT | ⏳ pending | |
+| 2 — MCQ clipper | 🟡 code-complete, needs fixture tuning | Section-aware marker detector + clipper land on the branch; thresholds need tuning against real PDFs. **Local-session focus.** |
+| 3 — Gemini categoriser | ✅ done | Vertex client + concurrency limiter + 429 retry; vision-mode categoriser; `POST /exams/:id/categorise`. |
+| 4 — Frontend (Library/Builder/Edit) | ✅ done | Filter row, question grid, dnd-kit Builder, Edit page, Drafts list, drafts+flags CRUD APIs. |
+| 5 — Export + Generate | ✅ done | pdf-lib QP+MS composer, `/export/draft/:id`; per-section bucket generator, `/generate`, Generate page. |
+| 6 — Google OAuth | ✅ done | OAuth flow with HMAC-signed state, opaque session tokens in HttpOnly cookie, allowlist gate, `requireAuth` middleware on all `/api/v1/*` mounts. |
+| 7 — Hardening + UAT | ⏳ pending | Real-teacher trial happens after Phase 2 fixture tuning unblocks Library content. |
 
-The active dev branch is `claude/push-esat-scaffold-KGoNa`. Phases 3, 5, 6 are
-being built from a cloud Claude Code session in parallel because they don't
-need fixtures.
+The active dev branch is `claude/push-esat-scaffold-KGoNa`. Phases 3–6 were
+built from a cloud Claude Code session in parallel; they're untested
+end-to-end against real data because Phase 2 fixture tuning hasn't run.
 
 ## Local-session handoff (Phase 2 tuning)
 
@@ -156,29 +156,53 @@ Stub API/extractor/frontend that boot but do nothing useful.
 - `POST /api/v1/exams/:id/extract` to retry after tuning.
 - **Validate against ≥10 past papers across ESAT/ENGAA/NSAA.** ← local.
 
-### Phase 3 — Categoriser + topic seed (pending)
-- Curate topic seeds for Maths 1/2, Chemistry, Biology, Advanced Maths
-  from official ESAT subject guides.
+### Phase 3 — Categoriser + topic seed (done; topic seeds pending)
 - Gemini 2.5 Flash vision prompt → `{ topic_code, difficulty, keywords, summary }`.
-- Concurrency throttle + 429 backoff (port from CAIE).
-- `POST /api/v1/exams/:id/categorise` to run categorisation across all
-  questions for an exam.
+- Concurrency throttle (`GEMINI_CONCURRENCY`) + 429 backoff with jitter.
+- `POST /api/v1/exams/:id/categorise` (idempotent; `?force=1` to redo).
+- **Outstanding (local):** curate topic seeds for Maths 1/2, Chemistry,
+  Biology, Advanced Maths from official ESAT subject guides; extend
+  `syllabus/syllabus.seed.json`.
 
-### Phase 4 — Frontend (pending)
-- Library (filter by test/section/topic/year/difficulty).
-- Builder (drag-drop, live total).
-- Upload, Edit, Login.
+### Phase 4 — Frontend (done)
+- Library: test/section/topic/year/min-max-difficulty filters with
+  paginated question grid; inline flag form; thumbnail + summary +
+  keywords per card.
+- Builder: dnd-kit sortable item list with question + blank slots,
+  question picker on the right, save/create draft flow, hydration
+  from `/drafts/:id`.
+- Edit: per-question admin editor (answer key, topic, difficulty,
+  summary, keywords) with image preview + OCR sidecar.
+- Drafts: list/open/delete + Export-PDF action.
+- Backend: drafts CRUD, flags GET/POST/PATCH, questions PATCH +
+  per-question flag inline-create.
 
-### Phase 5 — Export + Generate (pending)
-- pdf-lib composition with section dividers + answer-key MS.
-- Random paper generator with section + topic constraints.
+### Phase 5 — Export + Generate (done)
+- `services/pdf-composer.ts`: A4 cover page + section dividers +
+  stacked clipped images (renumbered 1..N in draft order); 4-column
+  answer-key MS PDF. Outputs persisted via the storage helper and
+  recorded in `saved_papers`.
+- `services/generator.ts`: per-section bucket spec (count, optional
+  topics whitelist, optional difficulty range). Shuffle + topic-dedupe
+  + backfill if dedupe leaves a section short.
+- Routes: `POST /api/v1/export/draft/:id`, `POST /api/v1/generate`
+  (with `save_as_draft`).
+- Frontend: Generate page with per-section bucket form.
 
-### Phase 6 — Auth + roles (pending)
-- Google OAuth (port H6 from CAIE).
-- `users.role` enum, allowlist.
+### Phase 6 — Auth + roles (done)
+- Google OAuth start/callback with HMAC-signed state (no cookies for
+  CSRF state — multi-tab safe).
+- Opaque session tokens stored server-side in `sessions`; `esat_sid`
+  HttpOnly cookie. `loadSessionUser`, `createSession`, `destroySession`.
+- `requireAuth` middleware mounted on every `/api/v1/*` and `/files`.
+  `AUTH_DISABLED=true` short-circuits to a synthetic admin in dev.
+  `ALLOWED_EMAILS` gates new-user signup; existing users always pass.
+- Frontend: 401 listener bounces to `/login`, which auto-redirects to
+  `/api/v1/auth/google/start`. Header shows `email · Sign out`.
 
 ### Phase 7 — Hardening + UAT (pending)
-- Bug fixes, real-teacher trial.
+- Real-teacher trial (gated on Phase 2 fixture tuning).
+- Bug fixes from trial.
 
 ## Reused from CAIE
 

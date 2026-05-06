@@ -13,8 +13,13 @@ const PatchBody = z.object({
   status: z.enum(['open', 'resolved', 'dismissed']),
 });
 
-function actorId(_req: unknown): string {
-  return process.env.ADMIN_USER_UUID ?? '00000000-0000-0000-0000-000000000001';
+import type { Request } from 'express';
+function actorId(req: Request): string {
+  return (
+    req.user?.id ??
+    process.env.ADMIN_USER_UUID ??
+    '00000000-0000-0000-0000-000000000001'
+  );
 }
 
 flags.get('/', async (req, res, next) => {

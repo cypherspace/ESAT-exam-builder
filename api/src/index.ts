@@ -19,15 +19,19 @@ app.use(express.json({ limit: '10mb' }));
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
+import { requireAuth } from './middleware/auth.js';
+
 app.use('/api/v1/auth', auth);
-app.use('/api/v1/exams', exams);
-app.use('/api/v1/questions', questions);
-app.use('/api/v1/topics', topics);
-app.use('/api/v1/drafts', drafts);
-app.use('/api/v1/generate', generate);
-app.use('/api/v1/export', exportRouter);
-app.use('/api/v1/flags', flags);
-app.use('/files', files);
+
+// Authenticated APIs. /healthz and the OAuth start/callback stay open.
+app.use('/api/v1/exams', requireAuth, exams);
+app.use('/api/v1/questions', requireAuth, questions);
+app.use('/api/v1/topics', requireAuth, topics);
+app.use('/api/v1/drafts', requireAuth, drafts);
+app.use('/api/v1/generate', requireAuth, generate);
+app.use('/api/v1/export', requireAuth, exportRouter);
+app.use('/api/v1/flags', requireAuth, flags);
+app.use('/files', requireAuth, files);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error('[esat-api] error', err);

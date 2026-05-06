@@ -164,7 +164,10 @@ questions.post('/:id/flags', async (req, res, next) => {
       res.status(400).json({ error: 'bad_request', issues: parsed.error.issues });
       return;
     }
-    const userId = process.env.ADMIN_USER_UUID ?? '00000000-0000-0000-0000-000000000001';
+    const userId =
+      req.user?.id ??
+      process.env.ADMIN_USER_UUID ??
+      '00000000-0000-0000-0000-000000000001';
     const result = await query(
       `INSERT INTO flags (question_id, user_id, note)
        VALUES ($1, $2, $3)
