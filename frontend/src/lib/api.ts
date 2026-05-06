@@ -181,6 +181,31 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
+
+  exportDraft: (id: string) =>
+    request<{ qp_uri: string; ms_uri: string }>(`/api/v1/export/draft/${id}`, {
+      method: 'POST',
+      body: '{}',
+    }),
+
+  generate: (body: {
+    name?: string;
+    test_code: TestCode;
+    section_mix: Partial<
+      Record<
+        SectionCode,
+        { count: number; topics?: string[]; difficulty_range?: [Difficulty, Difficulty] }
+      >
+    >;
+    avoid_duplicate_topics?: boolean;
+    save_as_draft?: boolean;
+  }) =>
+    request<{
+      question_ids: string[];
+      by_section: { section: SectionCode; picked: number; requested: number }[];
+      unfilled: { section: SectionCode; reason: string }[];
+      draft_id?: string | null;
+    }>('/api/v1/generate', { method: 'POST', body: JSON.stringify(body) }),
 };
 
 export function fileUrl(uri: string): string {

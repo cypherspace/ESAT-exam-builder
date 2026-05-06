@@ -5,6 +5,7 @@ import { Upload } from './pages/Upload';
 import { Login } from './pages/Login';
 import { Edit } from './pages/Edit';
 import { Drafts } from './pages/Drafts';
+import { Generate } from './pages/Generate';
 
 export function App() {
   return (
@@ -15,6 +16,7 @@ export function App() {
           <NavLink to="/" end className={navClass}>Library</NavLink>
           <NavLink to="/drafts" className={navClass}>Drafts</NavLink>
           <NavLink to="/builder" className={navClass}>Builder</NavLink>
+          <NavLink to="/generate" className={navClass}>Generate</NavLink>
           <NavLink to="/upload" className={navClass}>Upload</NavLink>
         </nav>
       </header>
@@ -24,6 +26,7 @@ export function App() {
           <Route path="/drafts" element={<Drafts />} />
           <Route path="/builder" element={<Builder />} />
           <Route path="/builder/:draftId" element={<Builder />} />
+          <Route path="/generate" element={<Generate />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/edit/:questionId" element={<Edit />} />
           <Route path="/login" element={<Login />} />

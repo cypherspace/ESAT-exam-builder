@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { api, fileUrl } from '../lib/api';
 
 export function Drafts() {
   const qc = useQueryClient();
@@ -8,6 +8,13 @@ export function Drafts() {
   const del = useMutation({
     mutationFn: (id: string) => api.deleteDraft(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['drafts'] }),
+  });
+  const exportDraft = useMutation({
+    mutationFn: (id: string) => api.exportDraft(id),
+    onSuccess: (out) => {
+      window.open(fileUrl(out.qp_uri), '_blank');
+      window.open(fileUrl(out.ms_uri), '_blank');
+    },
   });
 
   return (
@@ -38,13 +45,24 @@ export function Drafts() {
                 <span className="text-xs text-slate-500">
                   {d.items.length} items · updated {new Date(d.updated_at).toLocaleDateString()}
                 </span>
-                <button
-                  onClick={() => del.mutate(d.id)}
-                  className="text-xs text-red-600 hover:underline"
-                  disabled={del.isPending && del.variables === d.id}
-                >
-                  Delete
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => exportDraft.mutate(d.id)}
+                    disabled={exportDraft.isPending && exportDraft.variables === d.id}
+                    className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                  >
+                    {exportDraft.isPending && exportDraft.variables === d.id
+                      ? 'exporting…'
+                      : 'Export PDF'}
+                  </button>
+                  <button
+                    onClick={() => del.mutate(d.id)}
+                    className="text-xs text-red-600 hover:underline"
+                    disabled={del.isPending && del.variables === d.id}
+                  >
+                    Delete
+                  </button>
+                </div>
               </li>
             ))
           )}
