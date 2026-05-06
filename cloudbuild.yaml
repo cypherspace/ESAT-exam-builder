@@ -1,0 +1,101 @@
+# Cloud Build: build both images, push to Artifact Registry, redeploy.
+# Triggered on push to main once GCP project + trigger are wired up.
+#
+# Manually:  gcloud builds submit --config cloudbuild.yaml .
+#
+# NOTE: substitution values below are placeholders. Update them when the
+# GCP project + Artifact Registry repo + service account exist.
+
+substitutions:
+  _REGION: europe-west2
+  _AR: europe-west2-docker.pkg.dev/esat-exam-builder/esat
+  _SERVICE_ACCOUNT: esat-sa@esat-exam-builder.iam.gserviceaccount.com
+  _BUCKET: esat-exam-builder-storage
+  _CLOUD_SQL_INSTANCE: esat-exam-builder:europe-west2:esat-db
+  _DB_NAME: esat_db
+  _DB_USER: esat-sa@esat-exam-builder.iam
+
+steps:
+  # ---- build api ----
+  - id: build-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag=${_AR}/api:${BUILD_ID}
+      - --tag=${_AR}/api:latest
+      - --file=api/Dockerfile
+      - .
+
+  # ---- build extractor ----
+  - id: build-extractor
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --tag=${_AR}/extractor:${BUILD_ID}
+      - --tag=${_AR}/extractor:latest
+      - --file=extractor/Dockerfile
+      - extractor
+
+  # ---- push both ----
+  - id: push-api
+    name: gcr.io/cloud-builders/docker
+    waitFor: [build-api]
+    args: [push, --all-tags, '${_AR}/api']
+  - id: push-extractor
+    name: gcr.io/cloud-builders/docker
+    waitFor: [build-extractor]
+    args: [push, --all-tags, '${_AR}/extractor']
+
+  # ---- deploy extractor first (api depends on its URL) ----
+  - id: deploy-extractor
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    waitFor: [push-extractor]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud run deploy esat-extractor \
+          --image=${_AR}/extractor:${BUILD_ID} \
+          --region=${_REGION} \
+          --service-account=${_SERVICE_ACCOUNT} \
+          --allow-unauthenticated \
+          --min-instances=0 \
+          --max-instances=3 \
+          --memory=1Gi \
+          --cpu=1 \
+          --timeout=600 \
+          --set-env-vars=STORAGE_BACKEND=gcs,STORAGE_BUCKET=${_BUCKET},GOOGLE_CLOUD_PROJECT=esat-exam-builder
+
+  # ---- deploy api ----
+  - id: deploy-api
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    waitFor: [push-api, deploy-extractor]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        EXTRACTOR_URL=$(gcloud run services describe esat-extractor \
+          --region=${_REGION} --format='value(status.url)')
+        gcloud run deploy esat-api \
+          --image=${_AR}/api:${BUILD_ID} \
+          --region=${_REGION} \
+          --service-account=${_SERVICE_ACCOUNT} \
+          --allow-unauthenticated \
+          --min-instances=0 \
+          --max-instances=5 \
+          --memory=1Gi \
+          --cpu=1 \
+          --timeout=900 \
+          --set-env-vars="NODE_ENV=production,STORAGE_BACKEND=gcs,STORAGE_BUCKET=${_BUCKET},GOOGLE_CLOUD_PROJECT=esat-exam-builder,GEMINI_LOCATION=us-central1,GEMINI_MODEL=gemini-2.5-flash,CLOUD_SQL_INSTANCE=${_CLOUD_SQL_INSTANCE},DB_NAME=${_DB_NAME},DB_USER=${_DB_USER},EXTRACTOR_URL=$$EXTRACTOR_URL,COOKIE_SECURE=true" \
+          --set-secrets="GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,INGEST_API_KEY=ingest-api-key:latest" \
+          --add-cloudsql-instances=${_CLOUD_SQL_INSTANCE}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1800s
+
+images:
+  - '${_AR}/api:${BUILD_ID}'
+  - '${_AR}/api:latest'
+  - '${_AR}/extractor:${BUILD_ID}'
+  - '${_AR}/extractor:latest'

@@ -1,0 +1,26 @@
+{
+  "name": "esat-exam-builder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Oxbridge admissions test (ESAT/ENGAA/NSAA) past-paper library and exam builder.",
+  "workspaces": [
+    "packages/*",
+    "api",
+    "frontend",
+    "infra/db"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace api run dev",
+    "dev:frontend": "npm --workspace frontend run dev",
+    "dev:extractor": "cd extractor && python -m uvicorn app:app --reload --port 8081",
+    "build": "npm --workspaces --if-present run build",
+    "test": "npm --workspaces --if-present run test",
+    "lint": "npm --workspaces --if-present run lint",
+    "migrate:up": "npm --workspace infra/db run migrate:up",
+    "migrate:down": "npm --workspace infra/db run migrate:down",
+    "seed": "npm --workspace infra/db run seed"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

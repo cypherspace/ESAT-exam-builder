@@ -1,0 +1,22 @@
+{
+  "_note": "Topic taxonomy for ESAT/ENGAA/NSAA. Flat list per section. Source: official ESAT subject guides (Cambridge Assessment Admissions Testing).",
+  "_sources": {
+    "PHYSICS": "ESAT Guide — Physics (June 2025)"
+  },
+  "sections": {
+    "PHYSICS": [
+      { "code": "P1", "name": "Electricity" },
+      { "code": "P2", "name": "Magnetism" },
+      { "code": "P3", "name": "Mechanics" },
+      { "code": "P4", "name": "Thermal physics" },
+      { "code": "P5", "name": "Matter" },
+      { "code": "P6", "name": "Waves" },
+      { "code": "P7", "name": "Radioactivity" }
+    ],
+    "MATHS1": [],
+    "MATHS2": [],
+    "CHEMISTRY": [],
+    "BIOLOGY": [],
+    "ADV_MATHS": []
+  }
+}

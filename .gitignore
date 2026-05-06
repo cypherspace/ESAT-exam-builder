@@ -1,0 +1,46 @@
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Storage (local dev artifacts — clipped PNGs, raw uploaded PDFs)
+storage/
+
+# Past paper PDFs (copyright Cambridge Assessment Admissions Testing).
+# Keep a handful of samples under fixtures/ for tests if needed.
+ESAT Past Papers/
+ENGAA Past Papers/
+NSAA Past Papers/
+*.pdf
+!syllabus/*.pdf
+
+# Per-user Claude Code settings
+.claude/settings.local.json
+
+# Editor
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript build info
+*.tsbuildinfo
