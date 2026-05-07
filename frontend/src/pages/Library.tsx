@@ -279,9 +279,12 @@ function QuestionCard({ q }: { q: QuestionListItem }) {
       )}
       {q.summary && <div className="text-sm">{q.summary}</div>}
       {q.keywords.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap items-start gap-1 leading-none">
           {q.keywords.map((k) => (
-            <span key={k} className="text-xs bg-slate-100 rounded px-1.5 py-0.5">
+            <span
+              key={k}
+              className="inline-block whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-[11px] leading-tight text-slate-700"
+            >
               {k}
             </span>
           ))}
