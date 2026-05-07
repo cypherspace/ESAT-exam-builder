@@ -1,11 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type {
-  Difficulty,
-  ExamStatus,
-  SectionCode,
-  TestCode,
-} from '@esat/shared-types';
+import type { ExamStatus, SectionCode, TestCode } from '@esat/shared-types';
 import { api, fileUrl, type QuestionFilter, type QuestionListItem } from '../lib/api';
 import { SECTION_CODES, SECTION_LABEL, TEST_CODES } from '../lib/labels';
 
@@ -45,6 +40,23 @@ export function Library() {
     setFilter((f) => ({ ...f, [key]: value, page: 1 }));
   }
 
+  const qc = useQueryClient();
+  const bulk = useMutation({
+    mutationFn: () =>
+      api.categoriseUncategorised({
+        test_code: filter.test_code,
+        section: filter.section,
+        limit: 200,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['questions'] });
+    },
+  });
+  const showingUncategorised = filter.categorised === 'false';
+  const totalUncategorised = showingUncategorised
+    ? questions.data?.meta.total ?? 0
+    : 0;
+
   return (
     <div className="grid h-full grid-rows-[auto_1fr] gap-2 overflow-auto p-2">
       <ExamStrip
@@ -56,11 +68,25 @@ export function Library() {
       <section className="flex min-h-0 flex-col rounded border bg-white shadow-sm">
         <header className="flex items-center justify-between bg-purple-700 px-3 py-2 text-white">
           <h2 className="font-semibold">Question Library</h2>
-          {questions.data && (
-            <span className="text-xs opacity-80">
-              {questions.data.data.length} shown · {questions.data.meta.total} total
-            </span>
-          )}
+          <div className="flex items-center gap-3 text-xs">
+            {showingUncategorised && totalUncategorised > 0 && (
+              <button
+                onClick={() => bulk.mutate()}
+                disabled={bulk.isPending}
+                className="rounded bg-white px-2 py-0.5 font-semibold text-purple-900 hover:bg-slate-100 disabled:opacity-60"
+                title="Re-run Gemini on every uncategorised question matching the current filters"
+              >
+                {bulk.isPending
+                  ? 'Categorising…'
+                  : `Re-run on ${Math.min(totalUncategorised, 200)}`}
+              </button>
+            )}
+            {questions.data && (
+              <span className="opacity-80">
+                {questions.data.data.length} shown · {questions.data.meta.total} total
+              </span>
+            )}
+          </div>
         </header>
         <div className="flex-1 overflow-auto p-3">
         <div className="flex flex-wrap gap-2 text-sm">
@@ -100,22 +126,16 @@ export function Library() {
             value={filter.year ?? ''}
             onChange={(v) => update('year', v ? Number(v) : undefined)}
           />
-          <Select<string>
-            label="Min difficulty"
-            value={String(filter.difficulty_min ?? '')}
-            onChange={(v) =>
-              update('difficulty_min', v ? (Number(v) as Difficulty) : undefined)
-            }
-            options={[['', 'any'], ...['1', '2', '3', '4', '5'].map((d) => [d, d] as [string, string])]}
-          />
-          <Select<string>
-            label="Max difficulty"
-            value={String(filter.difficulty_max ?? '')}
-            onChange={(v) =>
-              update('difficulty_max', v ? (Number(v) as Difficulty) : undefined)
-            }
-            options={[['', 'any'], ...['1', '2', '3', '4', '5'].map((d) => [d, d] as [string, string])]}
-          />
+          <label className="flex items-center gap-2 self-end pb-1 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={filter.categorised === 'false'}
+              onChange={(e) =>
+                update('categorised', e.target.checked ? 'false' : undefined)
+              }
+            />
+            Uncategorised only
+          </label>
         </div>
 
         {questions.isLoading && <p className="text-sm text-slate-500">Loading…</p>}
@@ -251,12 +271,19 @@ function QuestionCard({ q }: { q: QuestionListItem }) {
     },
   });
 
+  const categorise = useMutation({
+    mutationFn: () => api.categoriseQuestion(q.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['questions'] });
+      qc.invalidateQueries({ queryKey: ['question', q.id] });
+    },
+  });
+
   const meta = useMemo(
     () => [
       `${q.test_code} ${q.year} ${q.sitting}`,
       SECTION_LABEL[q.section_code],
       `Q${q.number}`,
-      q.difficulty ? `★ ${q.difficulty}` : null,
       q.answer_key ? `key ${q.answer_key}` : null,
     ].filter(Boolean).join(' · '),
     [q],
@@ -290,10 +317,22 @@ function QuestionCard({ q }: { q: QuestionListItem }) {
           ))}
         </div>
       )}
-      <div className="flex justify-between text-xs">
-        <a href={`/edit/${q.id}`} className="text-blue-600 hover:underline">
-          Edit
-        </a>
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-3">
+          <a href={`/edit/${q.id}`} className="text-blue-600 hover:underline">
+            Edit
+          </a>
+          {q.topic_id == null && (
+            <button
+              type="button"
+              onClick={() => categorise.mutate()}
+              disabled={categorise.isPending}
+              className="text-purple-700 hover:underline disabled:opacity-50"
+            >
+              {categorise.isPending ? 'Categorising…' : 'Categorise'}
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setShowFlag((s) => !s)}

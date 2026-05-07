@@ -10,6 +10,10 @@ class ClippedQuestion(BaseModel):
     number: int
     page_index: int
     bbox: tuple[float, float, float, float]  # x0, y0, x1, y1 in PDF points
+    # Original question-number marker bbox (x, y, w, h) in source PDF
+    # points. Persisted so the export composer can paint over the original
+    # number when renumbering. None for pre-marker-bbox rows.
+    marker_bbox: tuple[float, float, float, float] | None = None
     image_uri: str
     ocr_text: str
 

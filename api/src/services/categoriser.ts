@@ -55,9 +55,12 @@ const scopeCache = new Map<string, Scope>();
 // Mirror of api/src/sections.ts — the categoriser doesn't import that file
 // to avoid a circular dependency, but the scopes have to stay in sync.
 const ALLOWED_SECTIONS: Record<TestCode, SectionCode[]> = {
+  // ESAT entry stays for legacy rows (no new uploads use it). Same six
+  // sections as before, in case we ever need to recategorise an ESAT row.
   ESAT: ['MATHS1', 'MATHS2', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'],
   ENGAA: ['MATHS1', 'PHYSICS', 'MATHS2'],
   NSAA: ['MATHS1', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'MATHS2'],
+  PAT: ['MATHS1', 'MATHS2', 'PHYSICS'],
 };
 
 const SECTION_LABEL: Record<SectionCode, string> = {
@@ -70,9 +73,11 @@ const SECTION_LABEL: Record<SectionCode, string> = {
 };
 
 async function getScope({ testCode, primarySection }: ScopeKey): Promise<Scope> {
-  // For ENGAA/NSAA we let the model choose across all of the test's allowed
-  // sections. ESAT keeps a single-section scope (clipping there is reliable).
-  const crossSection = testCode === 'ENGAA' || testCode === 'NSAA';
+  // For ENGAA / NSAA / PAT we let the model choose across all of the test's
+  // allowed sections — those papers bundle multiple subjects with no internal
+  // headers. ESAT keeps a single-section scope (clipping is reliable there).
+  const crossSection =
+    testCode === 'ENGAA' || testCode === 'NSAA' || testCode === 'PAT';
   const sections: SectionCode[] = crossSection
     ? ALLOWED_SECTIONS[testCode]
     : [primarySection];

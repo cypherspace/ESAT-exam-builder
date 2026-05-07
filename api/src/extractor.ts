@@ -29,6 +29,9 @@ export interface ExtractedQuestion {
   number: number;
   page_index: number;
   bbox: [number, number, number, number];
+  // Original question-number marker (x, y, w, h) in source PDF points.
+  // null when the upstream extractor doesn't emit it.
+  marker_bbox: [number, number, number, number] | null;
   image_uri: string;
   ocr_text: string;
 }

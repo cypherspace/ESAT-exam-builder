@@ -49,6 +49,17 @@ files.get('/', async (req, res, next) => {
       'application/octet-stream';
     res.setHeader('content-type', mime);
 
+    // PDFs are export artefacts — push them as downloads so opening one
+    // in a new tab from the Builder / Drafts page actually saves the
+    // file. PNGs / images stay inline so they can render in <img> tags.
+    if (ext === 'pdf') {
+      const basename = mimeKey.split(/[\\/]/).pop() ?? 'export.pdf';
+      res.setHeader(
+        'content-disposition',
+        `attachment; filename="${basename.replace(/"/g, '')}"`,
+      );
+    }
+
     // For file:// we know the size up-front; for gs:// we let the stream
     // body length flow through (transfer-encoding: chunked).
     if (uri.startsWith('file://')) {

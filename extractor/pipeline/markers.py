@@ -53,16 +53,18 @@ SECTION_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\bphysics\b", re.I), "PHYSICS"),
     (re.compile(r"\bchemistry\b", re.I), "CHEMISTRY"),
     (re.compile(r"\bbiology\b", re.I), "BIOLOGY"),
-    # Plain "Mathematics" / "Maths" — NSAA "Part A Mathematics" lands here.
+    # Plain "Mathematics" / "Maths" — NSAA "Part A Mathematics" and PAT
+    # "Section A — Mathematics for Physics" both land here.
     (re.compile(r"\bmath(?:ematic)?s\b", re.I), "MATHS1"),
 ]
 
 # A section header in these papers always carries a "PART X" or "SECTION N"
-# prefix — e.g. "PART A Mathematics", "PART B Physics", "SECTION 2". Cover
-# instructions and table-of-contents lines mention subject names in prose,
-# so we filter to lines with this prefix to avoid spurious transitions.
+# prefix — e.g. "PART A Mathematics", "PART B Physics", "SECTION 2",
+# "Section A" (PAT format). Cover instructions and table-of-contents lines
+# mention subject names in prose, so we filter to lines with this prefix
+# to avoid spurious transitions.
 _SECTION_PREFIX_RE = re.compile(
-    r"^\s*(?:PART\s+[A-Z]\b|SECTION\s+\d+\b)",
+    r"^\s*(?:PART\s+[A-Z]\b|SECTION\s+(?:[A-Z]|\d+)\b)",
     re.I,
 )
 # TOC entries look like "PART A Mathematics .................... 1" — kill

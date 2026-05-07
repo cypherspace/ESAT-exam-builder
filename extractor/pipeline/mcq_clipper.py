@@ -120,6 +120,10 @@ def clip_mcq_questions(
                 number=m.question_number,
                 page_index=m.page,
                 bbox=(0.0, y_top, page.rect.width, y_bottom),
+                # Original Q-number marker (in source PDF points). The
+                # export composer uses this to paint over the original
+                # number when renumbering.
+                marker_bbox=(m.x, m.y, m.w, m.h),
                 image_uri=uri,
                 ocr_text=text,
             ))

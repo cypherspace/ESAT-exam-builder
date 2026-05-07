@@ -23,9 +23,13 @@ export async function ingestExam(args: IngestArgs): Promise<{
 }> {
   await query(`UPDATE exams SET status = 'extracting' WHERE id = $1`, [args.examId]);
   try {
-    // ESAT papers restart numbering at 1 in each section; ENGAA/NSAA bundle
-    // multiple subject sections in one paper with continuous numbering.
-    const continuous = args.testCode === 'ENGAA' || args.testCode === 'NSAA';
+    // ESAT papers restart numbering at 1 in each section; ENGAA / NSAA /
+    // PAT bundle multiple subject sections in one paper with continuous
+    // numbering across the whole booklet.
+    const continuous =
+      args.testCode === 'ENGAA' ||
+      args.testCode === 'NSAA' ||
+      args.testCode === 'PAT';
     const result = await extractor.extract({
       exam_id: args.examId,
       test_code: args.testCode,
@@ -89,12 +93,15 @@ async function persistQuestions(
       answerKey[q.section_code]?.[String(q.number)]
       ?? fallbackByNumber.get(String(q.number))
       ?? null;
+    const markerBbox = q.marker_bbox
+      ? JSON.stringify({ x: q.marker_bbox[0], y: q.marker_bbox[1], w: q.marker_bbox[2], h: q.marker_bbox[3] })
+      : null;
     await query(
       `INSERT INTO questions (
          section_id, number, image_path, ocr_text, answer_key,
-         question_type, page_index, bbox
+         question_type, page_index, bbox, marker_bbox
        )
-       VALUES ($1, $2, $3, $4, $5, 'multiple_choice', $6, $7)`,
+       VALUES ($1, $2, $3, $4, $5, 'multiple_choice', $6, $7, $8)`,
       [
         sid,
         q.number,
@@ -103,6 +110,7 @@ async function persistQuestions(
         ans,
         q.page_index,
         JSON.stringify({ x0: q.bbox[0], y0: q.bbox[1], x1: q.bbox[2], y1: q.bbox[3] }),
+        markerBbox,
       ],
     );
     inserted += 1;

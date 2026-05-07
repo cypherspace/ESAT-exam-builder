@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import type { AnswerKey, Difficulty } from '@esat/shared-types';
+import type { AnswerKey } from '@esat/shared-types';
 import { api, fileUrl } from '../lib/api';
 import { SECTION_LABEL } from '../lib/labels';
 
-const ANSWER_KEYS: AnswerKey[] = ['A', 'B', 'C', 'D', 'E'];
+// Cambridge admissions papers use up to ~8 options on some questions.
+// Show the full A–H range in the picker; the DB enum already covers A–Z.
+const ANSWER_KEYS: AnswerKey[] = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
 export function Edit() {
   const { questionId } = useParams<{ questionId: string }>();
@@ -24,7 +26,6 @@ export function Edit() {
   });
 
   const [answerKey, setAnswerKey] = useState<AnswerKey | ''>('');
-  const [difficulty, setDifficulty] = useState<Difficulty | ''>('');
   const [topicId, setTopicId] = useState<string>('');
   const [summary, setSummary] = useState('');
   const [keywords, setKeywords] = useState('');
@@ -32,7 +33,6 @@ export function Edit() {
   useEffect(() => {
     if (!q.data) return;
     setAnswerKey(q.data.answer_key ?? '');
-    setDifficulty(q.data.difficulty ?? '');
     setTopicId(q.data.topic_id ?? '');
     setSummary(q.data.summary ?? '');
     setKeywords(q.data.keywords.join(', '));
@@ -42,7 +42,6 @@ export function Edit() {
     mutationFn: () =>
       api.patchQuestion(questionId!, {
         answer_key: answerKey === '' ? null : answerKey,
-        difficulty: difficulty === '' ? null : difficulty,
         topic_id: topicId === '' ? null : topicId,
         summary: summary.trim() === '' ? null : summary,
         keywords: keywords
@@ -119,22 +118,6 @@ export function Edit() {
               <option key={t.id} value={t.id}>
                 {t.code}. {t.name}
               </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="grid gap-1">
-          <span className="text-sm font-medium">Difficulty (1–5)</span>
-          <select
-            className="border rounded px-2 py-1"
-            value={String(difficulty)}
-            onChange={(e) =>
-              setDifficulty(e.target.value === '' ? '' : (Number(e.target.value) as Difficulty))
-            }
-          >
-            <option value="">— unset —</option>
-            {[1, 2, 3, 4, 5].map((d) => (
-              <option key={d} value={d}>{d}</option>
             ))}
           </select>
         </label>

@@ -1,6 +1,8 @@
 import type { SectionCode, TestCode } from '@esat/shared-types';
 
-export const TEST_CODES: TestCode[] = ['ESAT', 'ENGAA', 'NSAA'];
+// ESAT is gone from the UI: there are no fixtures we can ingest, and the
+// product has shifted to ENGAA / NSAA / PAT past papers.
+export const TEST_CODES: TestCode[] = ['ENGAA', 'NSAA', 'PAT'];
 
 export const SECTION_LABEL: Record<SectionCode, string> = {
   MATHS1: 'Maths 1',

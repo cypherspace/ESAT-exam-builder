@@ -3,7 +3,10 @@
  * Source of truth for the wire format.
  */
 
-export type TestCode = 'ESAT' | 'ENGAA' | 'NSAA';
+// 'ESAT' is kept in the union (the DB enum still has the value, and old
+// rows might reference it) but new uploads only use ENGAA / NSAA / PAT.
+// PAT = Oxford Physics Aptitude Test.
+export type TestCode = 'ESAT' | 'ENGAA' | 'NSAA' | 'PAT';
 
 export type SectionCode =
   | 'MATHS1'

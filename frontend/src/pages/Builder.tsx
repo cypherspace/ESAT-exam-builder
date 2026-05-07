@@ -14,7 +14,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import type { DraftItem, SectionCode, TestCode } from '@esat/shared-types';
 import { api, fileUrl, type QuestionFilter, type QuestionListItem } from '../lib/api';
 import { SECTION_CODES, SECTION_LABEL, TEST_CODES } from '../lib/labels';
@@ -29,6 +29,7 @@ const newKey = (prefix: string) =>
 
 export function Builder() {
   const { draftId } = useParams<{ draftId?: string }>();
+  const navigate = useNavigate();
   const qc = useQueryClient();
 
   const [name, setName] = useState('Untitled paper');
@@ -80,14 +81,29 @@ export function Builder() {
       };
       return draftId ? api.patchDraft(draftId, body) : api.createDraft(body);
     },
-    onSuccess: () => {
+    onSuccess: (out) => {
       qc.invalidateQueries({ queryKey: ['drafts'] });
-      qc.invalidateQueries({ queryKey: ['draft', draftId] });
+      qc.invalidateQueries({ queryKey: ['draft', out.id] });
+      // First Save on a new draft created the row — push the URL forward
+      // so the Export button (which needs draftId) can use it.
+      if (!draftId && out.id) {
+        navigate(`/builder/${out.id}`, { replace: true });
+      }
     },
   });
 
+  const [exportOpen, setExportOpen] = useState(false);
   const exportDraft = useMutation({
-    mutationFn: () => api.exportDraft(draftId!),
+    mutationFn: (opts: { mode: 'separate' | 'interleaved' | 'sequential'; include_cover: boolean }) =>
+      api.exportDraft(draftId!, opts),
+    onSuccess: (out) => {
+      // Open every returned URI in a new tab — /files sets
+      // Content-Disposition: attachment so the browser saves the PDF.
+      if (out.qp_uri) window.open(fileUrl(out.qp_uri), '_blank');
+      if (out.ms_uri) window.open(fileUrl(out.ms_uri), '_blank');
+      if (out.combined_uri) window.open(fileUrl(out.combined_uri), '_blank');
+      setExportOpen(false);
+    },
   });
 
   const addQuestion = (q: QuestionListItem) => {
@@ -183,46 +199,16 @@ export function Builder() {
                 setF('year', e.target.value ? Number(e.target.value) : undefined)
               }
             />
-            <div className="flex gap-1">
-              <select
-                className="flex-1 rounded border px-2 py-1"
-                value={filter.difficulty_min ?? ''}
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                checked={filter.categorised === 'false'}
                 onChange={(e) =>
-                  setF(
-                    'difficulty_min',
-                    (e.target.value ? Number(e.target.value) : undefined) as
-                      | QuestionFilter['difficulty_min']
-                  )
+                  setF('categorised', e.target.checked ? 'false' : undefined)
                 }
-                title="Min difficulty"
-              >
-                <option value="">★ min</option>
-                {[1, 2, 3, 4, 5].map((d) => (
-                  <option key={d} value={d}>
-                    ★{d}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="flex-1 rounded border px-2 py-1"
-                value={filter.difficulty_max ?? ''}
-                onChange={(e) =>
-                  setF(
-                    'difficulty_max',
-                    (e.target.value ? Number(e.target.value) : undefined) as
-                      | QuestionFilter['difficulty_max']
-                  )
-                }
-                title="Max difficulty"
-              >
-                <option value="">★ max</option>
-                {[1, 2, 3, 4, 5].map((d) => (
-                  <option key={d} value={d}>
-                    ★{d}
-                  </option>
-                ))}
-              </select>
-            </div>
+              />
+              Uncategorised only
+            </label>
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto">
@@ -267,7 +253,6 @@ export function Builder() {
                       <div className="mt-1 line-clamp-2 text-xs text-slate-600">{q.summary}</div>
                     )}
                     <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
-                      {q.difficulty && <span>★ {q.difficulty}</span>}
                       {q.keywords && q.keywords.length > 0 && (
                         <span className="line-clamp-1">{q.keywords.slice(0, 4).join(' · ')}</span>
                       )}
@@ -307,7 +292,7 @@ export function Builder() {
           onClear={clearItems}
           onAddBlank={addBlank}
           onSave={() => save.mutate()}
-          onExport={() => exportDraft.mutate()}
+          onExport={() => setExportOpen(true)}
           saving={save.isPending}
           savedId={draftId ?? null}
           exportPending={exportDraft.isPending}
@@ -392,6 +377,83 @@ export function Builder() {
           )}
         </div>
       </section>
+
+      {exportOpen && draftId && (
+        <ExportDialog
+          onClose={() => setExportOpen(false)}
+          onSubmit={(opts) => exportDraft.mutate(opts)}
+          pending={exportDraft.isPending}
+        />
+      )}
+    </div>
+  );
+}
+
+function ExportDialog({
+  onClose,
+  onSubmit,
+  pending,
+}: {
+  onClose: () => void;
+  onSubmit: (opts: {
+    mode: 'separate' | 'interleaved' | 'sequential';
+    include_cover: boolean;
+  }) => void;
+  pending: boolean;
+}) {
+  const [mode, setMode] = useState<'separate' | 'interleaved' | 'sequential'>('separate');
+  const [includeCover, setIncludeCover] = useState(true);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onClose}
+    >
+      <div
+        className="w-[460px] rounded bg-white p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-3 text-lg font-semibold">Export draft</h3>
+        <div className="space-y-2 text-sm">
+          {(
+            [
+              { v: 'separate' as const, l: 'Separate paper + mark scheme PDFs' },
+              { v: 'interleaved' as const, l: 'One PDF: Q1, MS1, Q2, MS2, …' },
+              { v: 'sequential' as const, l: 'One PDF: all questions, then all answers' },
+            ]
+          ).map((o) => (
+            <label key={o.v} className="flex items-center gap-2">
+              <input
+                type="radio"
+                checked={mode === o.v}
+                onChange={() => setMode(o.v)}
+              />
+              {o.l}
+            </label>
+          ))}
+        </div>
+        <div className="mt-4 border-t pt-3 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={includeCover}
+              onChange={(e) => setIncludeCover(e.target.checked)}
+            />
+            Include cover page
+          </label>
+        </div>
+        <div className="mt-5 flex justify-end gap-2 text-sm">
+          <button className="rounded px-3 py-1 hover:bg-slate-100" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="rounded bg-blue-600 px-3 py-1 text-white disabled:bg-slate-400"
+            disabled={pending}
+            onClick={() => onSubmit({ mode, include_cover: includeCover })}
+          >
+            {pending ? 'Generating…' : 'Export'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -434,7 +496,11 @@ function DraftPanel({
   saving: boolean;
   savedId: string | null;
   exportPending: boolean;
-  exportResult: { qp_uri: string; ms_uri: string } | null;
+  exportResult: {
+    qp_uri?: string;
+    ms_uri?: string;
+    combined_uri?: string;
+  } | null;
   previewedQuestionId: string | null;
   onPreview: (id: string) => void;
   sensors: ReturnType<typeof useSensors>;
@@ -541,8 +607,7 @@ function DraftPanel({
         )}
         {exportResult && (
           <span className="ml-auto text-emerald-700">
-            Exported · QP + MS in{' '}
-            <span className="font-mono">{exportResult.qp_uri.split(/[\\/]/).slice(-2).join('/')}</span>
+            Exported · downloads opened in new tabs
           </span>
         )}
       </footer>

@@ -6,8 +6,12 @@ import type { SectionCode, TestCode } from '@esat/shared-types';
 // Mathematics") is treated as MATHS2 — the topic taxonomy for "Advanced
 // Mathematics" matches MATHS2 (algebra & functions, sequences, calculus
 // etc.) and we keep one section per topic family.
-export const SECTIONS_BY_TEST: Record<TestCode, SectionCode[]> = {
-  ESAT: ['MATHS1', 'MATHS2', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY'],
+//
+// ESAT entry is intentionally absent — we don't ingest ESAT papers and the
+// upload validator rejects test_code='ESAT'. PAT (Oxford Physics Aptitude
+// Test) bundles basic + advanced maths + physics like ENGAA, no chemistry.
+export const SECTIONS_BY_TEST: Record<Exclude<TestCode, 'ESAT'>, SectionCode[]> = {
   ENGAA: ['MATHS1', 'PHYSICS', 'MATHS2'],
   NSAA: ['MATHS1', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'MATHS2'],
+  PAT: ['MATHS1', 'MATHS2', 'PHYSICS'],
 };

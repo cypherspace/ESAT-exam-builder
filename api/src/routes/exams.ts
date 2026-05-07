@@ -16,7 +16,7 @@ const upload = multer({
 });
 
 const UploadBody = z.object({
-  test_code: z.enum(['ESAT', 'ENGAA', 'NSAA']),
+  test_code: z.enum(['ENGAA', 'NSAA', 'PAT']),
   year: z.coerce.number().int().min(2000).max(2100),
   sitting: z.string().min(1).max(40),
   default_section: z

@@ -11,7 +11,7 @@
 
 import type { SectionCode, TestCode } from '@esat/shared-types';
 import { query } from '../db.js';
-import { categoriseQuestion } from './categoriser.js';
+import { categoriseQuestion, type CategorisedQuestion } from './categoriser.js';
 
 export interface CategoriseSummary {
   total: number;
@@ -32,6 +32,85 @@ interface QuestionRow {
   section_code: SectionCode;
   exam_id: string;
   test_code: TestCode;
+}
+
+/**
+ * Categorise a single question. Looks up the row by id, calls Gemini,
+ * persists the topic / summary / keywords / section move, and returns the
+ * post-move snapshot so callers can update UI immediately.
+ */
+export async function categoriseQuestionById(
+  questionId: string,
+): Promise<{ moved: boolean; section_code: SectionCode; topic_id: string | null; result: CategorisedQuestion }> {
+  const rows = await query<QuestionRow>(
+    `SELECT q.id, q.number, q.image_path, q.ocr_text, q.topic_id,
+            s.id AS section_id, s.code AS section_code,
+            e.id AS exam_id, e.test_code
+     FROM questions q
+     JOIN sections s ON s.id = q.section_id
+     JOIN exams e ON e.id = s.exam_id
+     WHERE q.id = $1`,
+    [questionId],
+  );
+  const q = rows.rows[0];
+  if (!q) throw new Error(`question ${questionId} not found`);
+
+  const out = await categoriseQuestion({
+    testCode: q.test_code,
+    sectionCode: q.section_code,
+    questionNumber: q.number,
+    imagePath: q.image_path,
+    ocrText: q.ocr_text,
+  });
+
+  // Resolve target section + topic ids.
+  const targetSection = out.section_code;
+  const sectionsByCode = await query<{ id: string; code: SectionCode }>(
+    `SELECT id, code FROM sections WHERE exam_id = $1`,
+    [q.exam_id],
+  );
+  const sectionIdForCode = new Map(sectionsByCode.rows.map((s) => [s.code, s.id]));
+  const targetSectionId = sectionIdForCode.get(targetSection);
+
+  let appliedSectionId = q.section_id;
+  if (targetSectionId && targetSectionId !== q.section_id) {
+    const collision = await query(
+      `SELECT 1 FROM questions WHERE section_id = $1 AND number = $2 AND id <> $3`,
+      [targetSectionId, q.number, q.id],
+    );
+    if (!collision.rowCount) appliedSectionId = targetSectionId;
+  }
+
+  const appliedSectionCode = sectionsByCode.rows.find((s) => s.id === appliedSectionId)?.code ?? q.section_code;
+  const topicLookup = await query<{ id: string }>(
+    `SELECT id FROM topics WHERE section_code = $1 AND code = $2`,
+    [appliedSectionCode, out.topic_code ?? ''],
+  );
+  const topicId = topicLookup.rows[0]?.id ?? null;
+
+  await query(
+    `UPDATE questions
+     SET topic_id = $1, difficulty = $2, summary = $3, keywords = $4, section_id = $5
+     WHERE id = $6`,
+    [topicId, out.difficulty, out.summary, out.keywords, appliedSectionId, q.id],
+  );
+
+  // Re-sync question_count on both old and new section if we moved.
+  if (appliedSectionId !== q.section_id) {
+    for (const sid of [q.section_id, appliedSectionId]) {
+      await query(
+        `UPDATE sections SET question_count = (SELECT COUNT(*) FROM questions WHERE section_id = $1) WHERE id = $1`,
+        [sid],
+      );
+    }
+  }
+
+  return {
+    moved: appliedSectionId !== q.section_id,
+    section_code: appliedSectionCode,
+    topic_id: topicId,
+    result: out,
+  };
 }
 
 export async function categoriseExam(

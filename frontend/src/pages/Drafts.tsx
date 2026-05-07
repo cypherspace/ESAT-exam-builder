@@ -12,8 +12,11 @@ export function Drafts() {
   const exportDraft = useMutation({
     mutationFn: (id: string) => api.exportDraft(id),
     onSuccess: (out) => {
-      window.open(fileUrl(out.qp_uri), '_blank');
-      window.open(fileUrl(out.ms_uri), '_blank');
+      // Open every URL the API returned. Default mode 'separate' returns
+      // qp + ms; combined modes return combined_uri.
+      if (out.qp_uri) window.open(fileUrl(out.qp_uri), '_blank');
+      if (out.ms_uri) window.open(fileUrl(out.ms_uri), '_blank');
+      if (out.combined_uri) window.open(fileUrl(out.combined_uri), '_blank');
     },
   });
 

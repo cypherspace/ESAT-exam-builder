@@ -43,6 +43,8 @@ export interface QuestionFilter {
   section?: SectionCode;
   topic_id?: string;
   year?: number;
+  /** Restrict to questions with (true) or without (false) a topic_id. */
+  categorised?: 'true' | 'false';
   difficulty_min?: Difficulty;
   difficulty_max?: Difficulty;
   page?: number;
@@ -141,6 +143,28 @@ export const api = {
       body: JSON.stringify({ note }),
     }),
 
+  categoriseQuestion: (id: string) =>
+    request<{
+      moved: boolean;
+      section_code: SectionCode;
+      topic_id: string | null;
+    }>(`/api/v1/questions/${id}/categorise`, { method: 'POST', body: '{}' }),
+
+  categoriseUncategorised: (body: {
+    test_code?: TestCode;
+    section?: SectionCode;
+    limit?: number;
+  }) =>
+    request<{
+      total: number;
+      categorised: number;
+      moved: number;
+      failed: { question_id: string; error: string }[];
+    }>('/api/v1/questions/categorise-uncategorised', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   drafts: () => request<{ data: PaperDraft[] }>('/api/v1/drafts'),
 
   draft: (id: string) => request<PaperDraft>(`/api/v1/drafts/${id}`),
@@ -182,10 +206,21 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
 
-  exportDraft: (id: string) =>
-    request<{ qp_uri: string; ms_uri: string }>(`/api/v1/export/draft/${id}`, {
+  exportDraft: (
+    id: string,
+    opts: { mode?: 'separate' | 'interleaved' | 'sequential'; include_cover?: boolean } = {},
+  ) =>
+    request<{
+      mode: 'separate' | 'interleaved' | 'sequential';
+      qp_uri?: string;
+      ms_uri?: string;
+      combined_uri?: string;
+    }>(`/api/v1/export/draft/${id}`, {
       method: 'POST',
-      body: '{}',
+      body: JSON.stringify({
+        mode: opts.mode ?? 'separate',
+        include_cover: opts.include_cover ?? true,
+      }),
     }),
 
   generate: (body: {
