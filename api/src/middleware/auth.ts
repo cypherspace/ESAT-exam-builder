@@ -30,9 +30,14 @@ export function setCookie(
 ): void {
   const parts = [`${name}=${encodeURIComponent(value)}`];
   parts.push('Path=/');
-  parts.push('SameSite=Lax');
+  // Production: frontend and API live on different *.run.app subdomains,
+  // so the session cookie has to be SameSite=None (with Secure) to ride
+  // cross-origin fetch requests. Local dev (no Secure) keeps SameSite=Lax
+  // since browsers reject SameSite=None over plain HTTP.
+  const secure = opts.secure ?? process.env.COOKIE_SECURE === 'true';
+  parts.push(secure ? 'SameSite=None' : 'SameSite=Lax');
   parts.push('HttpOnly');
-  if (opts.secure ?? process.env.COOKIE_SECURE === 'true') parts.push('Secure');
+  if (secure) parts.push('Secure');
   if (opts.maxAge != null) parts.push(`Max-Age=${opts.maxAge}`);
   const existing = res.getHeader('Set-Cookie');
   const out = Array.isArray(existing)
