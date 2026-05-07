@@ -10,5 +10,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+# Cloud Run injects PORT (defaults to 8080); fall back to 8081 for local dev.
+ENV PORT=8081
 EXPOSE 8081
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8081"]
+CMD ["sh", "-c", "exec uvicorn app:app --host 0.0.0.0 --port ${PORT}"]

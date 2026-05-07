@@ -60,6 +60,21 @@ export function streamLocal(uri: string): ReadStream {
   return createReadStream(uri.slice('file://'.length));
 }
 
+/** Stream a file:// or gs:// URI to a Node Writable. Routes use this to
+ *  serve clip PNGs / source PDFs back to the frontend regardless of which
+ *  backend stored them. */
+export function streamUri(uri: string): NodeJS.ReadableStream {
+  if (uri.startsWith('file://')) {
+    return createReadStream(uri.slice('file://'.length));
+  }
+  if (uri.startsWith('gs://')) {
+    if (!gcs) throw new Error('gcs backend not configured');
+    const { bucket, key } = parseGs(uri);
+    return gcs.bucket(bucket).file(key).createReadStream();
+  }
+  throw new Error(`unsupported uri: ${uri}`);
+}
+
 function parseGs(uri: string): { bucket: string; key: string } {
   const m = /^gs:\/\/([^/]+)\/(.+)$/.exec(uri);
   if (!m) throw new Error(`bad gs uri: ${uri}`);

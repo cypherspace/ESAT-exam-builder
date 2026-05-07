@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { resolve } from 'node:path';
-import { statSize, streamLocal } from '../storage.js';
+import { statSize, streamUri } from '../storage.js';
 
 export const files = Router();
 
 const localRoot = resolve(process.env.STORAGE_DIR ?? './storage');
+const gcsBucket = process.env.STORAGE_BUCKET;
 
 // GET /files?u=<storage-uri>
-// Phase 1 only serves local file:// URIs. GCS streams via signed URLs in Phase 6.
+// Serves both file:// URIs (local dev) and gs:// URIs (Cloud Run + GCS).
 files.get('/', async (req, res, next) => {
   try {
     const uri = String(req.query.u ?? '');
@@ -15,25 +16,46 @@ files.get('/', async (req, res, next) => {
       res.status(400).json({ error: 'u_required' });
       return;
     }
-    if (!uri.startsWith('file://')) {
+
+    let mimeKey = '';
+    if (uri.startsWith('file://')) {
+      const path = uri.slice('file://'.length);
+      if (!path.startsWith(localRoot)) {
+        res.status(403).json({ error: 'outside_storage_root' });
+        return;
+      }
+      mimeKey = path;
+    } else if (uri.startsWith('gs://')) {
+      const m = /^gs:\/\/([^/]+)\/(.+)$/.exec(uri);
+      if (!m) {
+        res.status(400).json({ error: 'bad_gs_uri' });
+        return;
+      }
+      if (gcsBucket && m[1] !== gcsBucket) {
+        res.status(403).json({ error: 'foreign_bucket' });
+        return;
+      }
+      mimeKey = m[2]!;
+    } else {
       res.status(400).json({ error: 'unsupported_uri_scheme' });
       return;
     }
-    const path = uri.slice('file://'.length);
-    if (!path.startsWith(localRoot)) {
-      res.status(403).json({ error: 'outside_storage_root' });
-      return;
-    }
-    const size = await statSize(uri);
-    const ext = path.split('.').pop()?.toLowerCase();
+
+    const ext = mimeKey.split('.').pop()?.toLowerCase();
     const mime =
       ext === 'pdf' ? 'application/pdf' :
       ext === 'png' ? 'image/png' :
       ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
       'application/octet-stream';
     res.setHeader('content-type', mime);
-    res.setHeader('content-length', String(size));
-    streamLocal(uri).pipe(res);
+
+    // For file:// we know the size up-front; for gs:// we let the stream
+    // body length flow through (transfer-encoding: chunked).
+    if (uri.startsWith('file://')) {
+      res.setHeader('content-length', String(await statSize(uri)));
+    }
+
+    streamUri(uri).pipe(res);
   } catch (err) {
     next(err);
   }
