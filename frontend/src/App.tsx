@@ -38,7 +38,10 @@ export function App() {
             <span className="opacity-90">{me.data.email}</span>
             <button
               onClick={async () => {
-                await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
+                await fetch(`${import.meta.env.VITE_API_URL ?? ''}/api/v1/auth/logout`, {
+                  method: 'POST',
+                  credentials: 'include',
+                });
                 window.location.href = '/login?manual=1';
               }}
               className="rounded bg-blue-700 px-2 py-1 text-xs hover:bg-blue-800"

@@ -22,7 +22,7 @@ export function Login() {
       // Honour an explicit ?manual=1 to disable the auto-redirect for
       // testing.
       if (params.get('manual') !== '1') {
-        window.location.href = '/api/v1/auth/google/start';
+        window.location.href = `${import.meta.env.VITE_API_URL ?? ''}/api/v1/auth/google/start`;
       }
     }
   }, [error, params]);
@@ -44,7 +44,7 @@ export function Login() {
         <>
           <p className="text-sm text-red-700">{message}</p>
           <a
-            href="/api/v1/auth/google/start"
+            href={`${import.meta.env.VITE_API_URL ?? ''}/api/v1/auth/google/start`}
             className="bg-blue-600 text-white rounded px-3 py-2 inline-block"
           >
             Continue with Google
