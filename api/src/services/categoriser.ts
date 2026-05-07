@@ -72,6 +72,67 @@ const SECTION_LABEL: Record<SectionCode, string> = {
   ADV_MATHS: 'Advanced Mathematics (legacy — collapsed into MATHS2)',
 };
 
+// Brief content hints embedded in the prompt next to each topic name.
+// Without these the model sees only e.g. "P3. Mechanics" and guesses the
+// scope; with them it picks the right topic far more reliably.
+const TOPIC_HINTS: Record<string, string> = {
+  // Physics — P1..P7
+  P1: 'circuits, resistance, current, voltage, capacitance, electric fields, charge, power dissipation, transformers in a circuit context',
+  P2: 'magnetic fields, electromagnetic induction, motors, transformers (induction), force on moving charges',
+  P3: 'kinematics, dynamics, Newton\'s laws, momentum, energy, work, gravitation, orbits, projectile motion, fluid statics, moments, oscillations, circular motion',
+  P4: 'temperature, heat capacity, latent heat, gas laws, thermodynamics, conduction / convection / radiation, blackbody',
+  P5: 'states of matter, density, pressure, fluids, particle model, atomic structure (chemistry-adjacent), nuclear structure',
+  P6: 'wave properties, frequency, wavelength, reflection, refraction, diffraction, interference, EM spectrum, optics, Snell\'s law',
+  P7: 'radioactive decay, half-life, nuclear reactions, alpha/beta/gamma, fission, fusion, mass-energy equivalence',
+  // Maths 1 — M1..M7
+  M1: 'SI units, dimensional analysis, unit conversions',
+  M2: 'integers, fractions, decimals, percentages, surds, indices, prime factorisation',
+  M3: 'ratios, proportions, scaling, direct/inverse proportion',
+  M4: 'simplifying expressions, solving linear and quadratic equations, simultaneous equations, basic algebraic manipulation, inequalities',
+  M5: 'angles, triangles, polygons, circles, area, perimeter, volume, similar shapes, Pythagoras, basic 2D/3D geometry',
+  M6: 'mean, median, mode, range, standard deviation, data interpretation, charts',
+  M7: 'simple probability, combined events, tree diagrams, expected outcomes',
+  // Maths 2 / Advanced — N1..N8
+  N1: 'functions and their properties, transformations, polynomial / rational / modulus functions, factor and remainder theorems, partial fractions',
+  N2: 'arithmetic and geometric sequences and series, sum to n, sum to infinity, binomial expansion',
+  N3: 'lines and circles in the x-y plane, gradient, distance, midpoint, parametric forms',
+  N4: 'sin, cos, tan, identities, equations, sine/cosine rule, radians, trig graphs',
+  N5: 'exponential and logarithmic functions, log laws, modelling, e^x, ln x',
+  N6: 'differentiation from first principles, rules, chain/product/quotient, stationary points, optimisation',
+  N7: 'definite and indefinite integration, area under a curve, volumes of revolution, integration by parts/substitution',
+  N8: 'graph sketching, asymptotes, transformations of curves, identifying functions from graphs',
+  // Chemistry C1..C17
+  C1: 'protons, neutrons, electrons, isotopes, electron configuration',
+  C2: 'periodic trends, groups, periods, electronegativity, atomic radius',
+  C3: 'balancing equations, formulae, types of reaction, conservation of mass',
+  C4: 'moles, molar mass, stoichiometry, limiting reagent, percentage yield',
+  C5: 'oxidation states, redox half-equations, oxidising / reducing agents',
+  C6: 'ionic / covalent / metallic bonding, intermolecular forces, structure → property links',
+  C7: 'Group 1, Group 2, halogens, transition metals, noble gases',
+  C8: 'filtration, distillation, chromatography, recrystallisation',
+  C9: 'pH, neutralisation, indicators, salts, acid + base reactions',
+  C10: 'rate of reaction, factors affecting rate, catalysts',
+  C11: 'enthalpy changes, exothermic / endothermic, bond enthalpies, calorimetry',
+  C12: 'electrolysis cells, ions discharged, electrode products',
+  C13: 'alkanes, alkenes, alcohols, polymers, isomers, functional groups',
+  C14: 'extraction, reactivity series, displacement, alloys',
+  C15: 'states, kinetic theory, gas pressure, diffusion',
+  C16: 'flame tests, identification of cations/anions, gas tests',
+  C17: 'composition of air, water purification, pollutants, carbon cycle',
+  // Biology B1..B11
+  B1: 'cell structure, organelles, prokaryotes vs eukaryotes',
+  B2: 'diffusion, osmosis, active transport',
+  B3: 'mitosis, meiosis, sex chromosomes',
+  B4: 'genes, alleles, dominant / recessive, monohybrid crosses',
+  B5: 'DNA structure, replication, transcription, translation',
+  B6: 'genetic engineering, PCR, GMOs, gene therapy',
+  B7: 'continuous / discontinuous variation, mutations, evolution',
+  B8: 'enzyme action, lock and key, factors affecting enzyme activity',
+  B9: 'circulation, respiration, digestion, nervous system, hormones',
+  B10: 'food chains, energy flow, nitrogen / carbon cycles, biodiversity',
+  B11: 'photosynthesis, transpiration, transport in plants',
+};
+
 async function getScope({ testCode, primarySection }: ScopeKey): Promise<Scope> {
   // For ENGAA / NSAA / PAT we let the model choose across all of the test's
   // allowed sections — those papers bundle multiple subjects with no internal
@@ -98,10 +159,10 @@ async function getScope({ testCode, primarySection }: ScopeKey): Promise<Scope> 
     topicsBySection[r.section_code]?.push(r.code);
   }
 
-  // Pretty multi-section tree:
+  // Pretty multi-section tree with content hints:
   //   PHYSICS — Physics
-  //     P1. Electricity
-  //     P2. Magnetism
+  //     P1. Electricity — circuits, resistance, …
+  //     P2. Magnetism — magnetic fields, induction, …
   //     ...
   const treeParts: string[] = [];
   for (const s of sections) {
@@ -110,7 +171,10 @@ async function getScope({ testCode, primarySection }: ScopeKey): Promise<Scope> 
     if (rs.length === 0) {
       treeParts.push('  (no topics seeded — leave empty for this section)');
     } else {
-      for (const r of rs) treeParts.push(`  ${r.code}. ${r.name}`);
+      for (const r of rs) {
+        const hint = TOPIC_HINTS[r.code];
+        treeParts.push(`  ${r.code}. ${r.name}${hint ? ` — ${hint}` : ''}`);
+      }
     }
   }
 
@@ -194,7 +258,7 @@ ${scope.tree}
 
 Return JSON. Rules:
 - section_code: one of [${scope.sections.join(', ')}]. Match the question's content, not its position in the paper.
-- topic_code: one of the codes listed UNDER your chosen section_code above. Use the empty string "" if none fit.
+- topic_code: one of the codes listed UNDER your chosen section_code above. The taxonomy is intentionally broad — every Physics question that involves ANY mechanics-like concept (forces, energy, momentum, kinematics, gravity, fluids, moments) belongs in P3; every electricity-or-circuit question in P1; every wave / optics / EM-spectrum question in P6; etc. Pick the closest topic. Only use the empty string "" when the question genuinely has no relation to any code under the chosen section. Don't leave it blank just because the question spans two topics — pick the dominant one.
 - summary: ≤ 12 words. No lead-in phrase ("This question asks…"). Imperative or noun-phrase. Example: "Resolve forces on inclined plane to find friction coefficient." or "Mole ratio in limiting-reagent stoichiometry calculation."
 - keywords: 3–6 concise terms. Use canonical subject vocabulary.
 - difficulty: 1 (routine recall / single-step) … 3 (multi-step application) … 5 (synthesis or unfamiliar context). Calibrate against typical ESAT/ENGAA/NSAA distractor density and time pressure (~90 seconds per question).
