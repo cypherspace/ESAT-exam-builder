@@ -35,7 +35,7 @@ from pipeline.mcq_clipper import clip_mcq_questions
 app = FastAPI(title="esat-extractor", version="0.1.0")
 
 
-TestCode = Literal["ESAT", "ENGAA", "NSAA"]
+TestCode = Literal["ESAT", "ENGAA", "NSAA", "PAT"]
 
 
 class ExtractMsRequest(BaseModel):
@@ -53,6 +53,9 @@ class ExtractRequest(BaseModel):
     # use continuous Q1..QN across the whole paper. The clipper needs to
     # know which mode to apply when filtering candidates to strict 1..N.
     continuous_numbering: bool = False
+    # PAT papers mix MCQ and long-form questions; mcq_only drops the
+    # long-form ones at clip time (we can't grade them).
+    mcq_only: bool = False
 
 
 class RenderRequest(BaseModel):
@@ -97,6 +100,7 @@ def extract(req: ExtractRequest) -> dict:
             out_prefix=out_prefix,
             default_section=req.default_section,
             continuous_numbering=req.continuous_numbering,
+            mcq_only=req.mcq_only,
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"clip_failed: {exc}")

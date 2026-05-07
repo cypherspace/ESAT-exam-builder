@@ -12,6 +12,7 @@ Strategy (first cut — TUNE against fixtures):
 from __future__ import annotations
 
 import io
+import re
 from typing import TYPE_CHECKING
 
 from .markers import Marker, detect_markers
@@ -26,6 +27,14 @@ if TYPE_CHECKING:
 DPI = 200
 TOP_PAD_PT = 8.0
 BOTTOM_PAD_PT = 30.0
+
+# Heuristic for MCQ detection from a clip's OCR text. PAT papers mix
+# MCQ + long-form questions; we only want to keep the MCQs.
+# Matches a standalone capital letter on its own line (the way option
+# labels A / B / C / D / E typically render). 4 or more such lines in
+# a clip's body strongly suggests it's an MCQ.
+_OPTION_LETTER_RE = re.compile(r"^\s*([A-H])\s*$", re.MULTILINE)
+_MCQ_MIN_OPTIONS = 4
 
 
 def _lowest_content_y(page: "fitz.Page") -> float:
@@ -68,6 +77,7 @@ def clip_mcq_questions(
     out_prefix: str,
     default_section: str | None = None,
     continuous_numbering: bool = False,
+    mcq_only: bool = False,
 ) -> list[ClippedQuestion]:
     """Render per-question PNGs and return ClippedQuestion records.
 
@@ -75,6 +85,10 @@ def clip_mcq_questions(
     `continuous_numbering`: pass True for ENGAA/NSAA (one continuous Q1..QN
     sequence across the paper); leave False for ESAT (each section restarts
     at Q1).
+    `mcq_only`: when True, drop clips whose OCR text doesn't contain at
+    least `_MCQ_MIN_OPTIONS` standalone option-letter lines. PAT papers
+    mix MCQ + long-form questions; the rest of the codebase only handles
+    MCQs, so we skip the long-form ones at clip time.
     """
     import fitz
 
@@ -108,12 +122,20 @@ def clip_mcq_questions(
             else:
                 y_bottom = min(page.rect.height, _lowest_content_y(page) + BOTTOM_PAD_PT)
 
+            clip_rect = fitz.Rect(0, y_top, page.rect.width, y_bottom)
+            text = page.get_textbox(clip_rect).strip()
+
+            # MCQ filter — skip questions that don't look like MCQs.
+            # This avoids writing PNGs for long-form questions on PAT
+            # papers, which we can't grade automatically.
+            if mcq_only:
+                option_count = len(set(_OPTION_LETTER_RE.findall(text)))
+                if option_count < _MCQ_MIN_OPTIONS:
+                    continue
+
             img = _render_clip(page, y_top, y_bottom)
             key = f"{out_prefix}/{m.section_code.lower()}/q{m.question_number:02d}.png"
             uri = _save_png(img, key)
-
-            clip_rect = fitz.Rect(0, y_top, page.rect.width, y_bottom)
-            text = page.get_textbox(clip_rect).strip()
 
             results.append(ClippedQuestion(
                 section_code=m.section_code,

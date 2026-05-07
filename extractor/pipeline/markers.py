@@ -71,7 +71,13 @@ _SECTION_PREFIX_RE = re.compile(
 # anything with dot leaders followed by a page number.
 _TOC_LEADER_RE = re.compile(r"\.{3,}\s*\d+\s*$")
 
-_BARE_Q_RE = re.compile(r"^\s*(\d{1,3})(?=\s*\(|\s*$|\s)")
+# Match a bare question number — "1", "1 ", "1.\n", "1.  Foo". The
+# optional `\.?` makes us tolerant of PAT-style "1." markers without
+# letting "10.5" fool us (the lookahead requires the next char after
+# any trailing dot to be whitespace, EOL, or `(` — not another digit).
+_BARE_Q_RE = re.compile(
+    r"^\s*(\d{1,3})(?:\.)?\s*(?=\(|$|\s|[A-Z])"
+)
 
 
 def _detect_section(text: str) -> str | None:
@@ -170,7 +176,7 @@ def detect_markers(
     *,
     min_size: float = 9.5,
     max_size: float = 13.0,
-    max_x0: float = 90.0,
+    max_x0: float = 130.0,
     min_y: float = 50.0,
     require_bold: bool = False,
     default_section: str | None = None,

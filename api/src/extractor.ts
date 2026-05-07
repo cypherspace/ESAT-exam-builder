@@ -22,6 +22,8 @@ export interface ExtractRequest {
   ms_uri: string | null;
   default_section?: SectionCode;
   continuous_numbering?: boolean;
+  /** Drop non-MCQ clips at extraction time (PAT mixes long-form Qs in). */
+  mcq_only?: boolean;
 }
 
 export interface ExtractedQuestion {

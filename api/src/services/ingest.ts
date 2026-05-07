@@ -30,13 +30,23 @@ export async function ingestExam(args: IngestArgs): Promise<{
       args.testCode === 'ENGAA' ||
       args.testCode === 'NSAA' ||
       args.testCode === 'PAT';
+    // PAT papers mix MCQ and long-form questions — drop the long-form
+    // ones at clip time. The other tests are all-MCQ.
+    const mcqOnly = args.testCode === 'PAT';
+    // PAT mark schemes are worked solutions, not answer-key tables; the
+    // existing MS parser misreads them as e.g. "Q12 = M, Q12 = D" and
+    // poisons answer_key. Skip MS parsing entirely for PAT — the
+    // solutions PDF still gets persisted (exams.ms_pdf_path) so a
+    // future Gemini-based answer extractor can use it.
+    const msUriToParse = args.testCode === 'PAT' ? null : args.msUri;
     const result = await extractor.extract({
       exam_id: args.examId,
       test_code: args.testCode,
       qp_uri: args.qpUri,
-      ms_uri: args.msUri,
+      ms_uri: msUriToParse,
       default_section: args.defaultSection,
       continuous_numbering: continuous,
+      mcq_only: mcqOnly,
     });
     const inserted = await persistQuestions(
       args.examId,
