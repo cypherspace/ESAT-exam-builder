@@ -16,7 +16,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { DraftItem, SectionCode, TestCode } from '@esat/shared-types';
-import { api, fileUrl, type QuestionFilter, type QuestionListItem } from '../lib/api';
+import {
+  api,
+  fileUrl,
+  triggerDownload,
+  type QuestionFilter,
+  type QuestionListItem,
+} from '../lib/api';
 import { SECTION_CODES, SECTION_LABEL, TEST_CODES } from '../lib/labels';
 
 interface ItemWithKey {
@@ -72,7 +78,7 @@ export function Builder() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const save = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<{ id: string }> => {
       const body = {
         name,
         items: items.map((it) => it.item),
@@ -94,14 +100,40 @@ export function Builder() {
 
   const [exportOpen, setExportOpen] = useState(false);
   const exportDraft = useMutation({
-    mutationFn: (opts: { mode: 'separate' | 'interleaved' | 'sequential'; include_cover: boolean }) =>
-      api.exportDraft(draftId!, opts),
+    mutationFn: async (opts: {
+      mode: 'separate' | 'interleaved' | 'sequential';
+      include_cover: boolean;
+    }) => {
+      // Auto-save if the draft hasn't been persisted yet — the Export
+      // endpoint can only operate on a saved paper_drafts row. We pull
+      // the current items / name straight from local state so the user
+      // never has to think about the two-step Save → Export dance.
+      let id = draftId;
+      if (!id) {
+        const created = await api.createDraft({
+          name,
+          items: items.map((it) => it.item),
+          time_limit_minutes: timeLimit === '' ? null : Number(timeLimit),
+          instructions: instructions.trim() === '' ? null : instructions,
+        });
+        id = created.id;
+        qc.invalidateQueries({ queryKey: ['drafts'] });
+        navigate(`/builder/${id}`, { replace: true });
+      }
+      return api.exportDraft(id, opts);
+    },
     onSuccess: (out) => {
-      // Open every returned URI in a new tab — /files sets
-      // Content-Disposition: attachment so the browser saves the PDF.
-      if (out.qp_uri) window.open(fileUrl(out.qp_uri), '_blank');
-      if (out.ms_uri) window.open(fileUrl(out.ms_uri), '_blank');
-      if (out.combined_uri) window.open(fileUrl(out.combined_uri), '_blank');
+      // /files sends Content-Disposition: attachment for PDFs, so any
+      // navigation to the URL triggers a download. window.open() is
+      // unreliable here — browsers treat it as a popup when it fires
+      // from an async fetch callback (the user-gesture has left the
+      // stack), so the second open() in 'separate' mode gets blocked
+      // even when the first slips through. A programmatic <a download>
+      // click is the documented browser-friendly way to start a
+      // download from JS without a popup-blocker hit.
+      const downloads = [out.qp_uri, out.ms_uri, out.combined_uri]
+        .filter((u): u is string => Boolean(u));
+      for (const uri of downloads) triggerDownload(fileUrl(uri));
       setExportOpen(false);
     },
   });
@@ -378,7 +410,7 @@ export function Builder() {
         </div>
       </section>
 
-      {exportOpen && draftId && (
+      {exportOpen && (
         <ExportDialog
           onClose={() => setExportOpen(false)}
           onSubmit={(opts) => exportDraft.mutate(opts)}
@@ -552,8 +584,8 @@ function DraftPanel({
         <button
           className="rounded bg-white px-2 py-0.5 text-xs text-purple-900 hover:bg-slate-100 disabled:opacity-40"
           onClick={onExport}
-          disabled={!savedId || empty || exportPending}
-          title={!savedId ? 'Save the draft first' : empty ? 'Add questions first' : 'Export QP + MS PDFs'}
+          disabled={empty || exportPending}
+          title={empty ? 'Add at least one question first' : 'Export QP + MS PDFs'}
         >
           {exportPending ? 'Exporting…' : 'Export'}
         </button>

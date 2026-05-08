@@ -246,3 +246,20 @@ export const api = {
 export function fileUrl(uri: string): string {
   return `${API_BASE}/files?u=${encodeURIComponent(uri)}`;
 }
+
+/**
+ * Trigger a browser download for the URL by creating an <a download>
+ * element and clicking it. More reliable than window.open() from an
+ * async callback (which Chrome treats as a popup and blocks). The
+ * server already sends Content-Disposition: attachment for PDFs, so
+ * the browser saves the file rather than navigating to it.
+ */
+export function triggerDownload(url: string, filename?: string): void {
+  const a = document.createElement('a');
+  a.href = url;
+  a.rel = 'noopener';
+  if (filename) a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
