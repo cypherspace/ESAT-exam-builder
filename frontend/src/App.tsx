@@ -18,13 +18,13 @@ export function App() {
       <header className="flex items-center gap-4 bg-blue-600 px-4 py-2 text-white">
         <h1 className="text-lg font-semibold">ESAT Exam Builder</h1>
         <nav className="flex gap-3 text-sm">
-          <NavLink to="/builder" end className={navClass}>
+          <NavLink to="/" end className={navClass}>
             Builder
           </NavLink>
           <NavLink to="/generate" className={navClass}>
             Generate
           </NavLink>
-          <NavLink to="/" end className={navClass}>
+          <NavLink to="/library" className={navClass}>
             Library
           </NavLink>
           <NavLink to="/drafts" className={navClass}>
@@ -59,10 +59,11 @@ export function App() {
       </header>
       <main className="min-h-0 flex-1">
         <Routes>
-          <Route path="/" element={<Library />} />
-          <Route path="/drafts" element={<Drafts />} />
+          <Route path="/" element={<Builder />} />
           <Route path="/builder" element={<Builder />} />
           <Route path="/builder/:draftId" element={<Builder />} />
+          <Route path="/library" element={<Library />} />
+          <Route path="/drafts" element={<Drafts />} />
           <Route path="/generate" element={<Generate />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/edit/:questionId" element={<Edit />} />
