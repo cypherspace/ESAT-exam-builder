@@ -76,13 +76,19 @@ function verifyState(state: string): boolean {
   return timingSafeEqual(a, b);
 }
 
-function allowedEmails(): Set<string> | null {
-  const raw = process.env.ALLOWED_EMAILS;
-  if (!raw) return null;
-  const set = new Set(
-    raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean),
+/**
+ * Look the email up in the allowed_emails table. Returns the role to
+ * grant the user on first sign-in, or null if the email isn't on the
+ * list. Email matching is case-insensitive.
+ */
+async function lookupInvite(
+  email: string,
+): Promise<'admin' | 'teacher' | 'student' | null> {
+  const r = await query<{ role: 'admin' | 'teacher' | 'student' }>(
+    `SELECT role FROM allowed_emails WHERE LOWER(email) = LOWER($1)`,
+    [email],
   );
-  return set.size === 0 ? null : set;
+  return r.rows[0]?.role ?? null;
 }
 
 auth.get('/google/start', (req, res) => {
@@ -192,20 +198,25 @@ auth.get('/google/callback', async (req, res, next) => {
         [claims.sub, claims.name ?? null, userId],
       );
     } else {
-      const allow = allowedEmails();
-      if (allow && !allow.has(email)) {
+      // First-time sign-in: consult the allowed_emails table for the
+      // role to grant. If the email isn't on the list, reject.
+      const inviteRole = await lookupInvite(email);
+      if (!inviteRole) {
         bounce('not_allowed', { email });
         return;
       }
       const created = await query<{ id: string }>(
         `INSERT INTO users (google_id, email, display_name, role, last_login_at)
-         VALUES ($1, $2, $3, 'teacher', now())
+         VALUES ($1, $2, $3, $4::user_role, now())
          RETURNING id`,
-        [claims.sub, email, claims.name ?? null],
+        [claims.sub, email, claims.name ?? null, inviteRole],
       );
       const id = created.rows[0]?.id;
       if (!id) throw new Error('user insert returned no id');
       userId = id;
+      // The invite has been consumed — drop it so the table only ever
+      // shows people who haven't yet signed in.
+      await query(`DELETE FROM allowed_emails WHERE LOWER(email) = LOWER($1)`, [email]);
     }
 
     const sid = await createSession(userId);

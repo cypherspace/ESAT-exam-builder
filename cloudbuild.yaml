@@ -16,9 +16,9 @@ substitutions:
   # region, so these don't change across redeploys).
   _PUBLIC_URL: https://esat-api-6xudjnmxra-nw.a.run.app
   _FRONTEND_URL: https://esat-frontend-6xudjnmxra-nw.a.run.app
-  # Comma-separated allowlist for new-user signup. Existing users in the
-  # users table always pass; this set only gates first-time logins.
-  _ALLOWED_EMAILS: cypherspace@gmail.com,rebecca.potter@ucs.org.uk,matthew.sammon@ucs.org.uk,simon.hoyle@ucs.org.uk,richard.wood@ucs.org.uk,peter.edmunds@ucs.org.uk,thomas.underwood@ucs.org.uk,tom.bradshaw@ucs.org.uk,fermina.marche@ucs.org.uk,niccolo.salvatori@ucs.org.uk,andrew.quirke@ucs.org.uk,joseph.peyser@ucs.org.uk,jade.root@ucs.org.uk,nicola.coulter@ucs.org.uk,toby.brown@ucs.org.uk,sophie.prajapat@ucs.org.uk
+  # The first-time-signup allowlist used to live here; it's now in the DB
+  # (allowed_emails table, managed via the /admin page). The repo no
+  # longer ships a staff roster.
 
 steps:
   # ---- build extractor ----
@@ -97,7 +97,7 @@ steps:
           --memory=1Gi \
           --cpu=1 \
           --timeout=900 \
-          --set-env-vars="^|^NODE_ENV=production|STORAGE_BACKEND=gcs|STORAGE_BUCKET=${_BUCKET}|GOOGLE_CLOUD_PROJECT=esat-exam-builder|GEMINI_LOCATION=us-central1|GEMINI_MODEL=gemini-2.5-flash|EXTRACTOR_URL=$$EXTRACTOR_URL|COOKIE_SECURE=true|AUTH_DISABLED=false|ADMIN_USER_UUID=00000000-0000-0000-0000-000000000001|GOOGLE_OAUTH_CLIENT_ID=${_OAUTH_CLIENT_ID}|PUBLIC_URL=${_PUBLIC_URL}|FRONTEND_URL=${_FRONTEND_URL}|ALLOWED_EMAILS=${_ALLOWED_EMAILS}" \
+          --set-env-vars="^|^NODE_ENV=production|STORAGE_BACKEND=gcs|STORAGE_BUCKET=${_BUCKET}|GOOGLE_CLOUD_PROJECT=esat-exam-builder|GEMINI_LOCATION=us-central1|GEMINI_MODEL=gemini-2.5-flash|EXTRACTOR_URL=$$EXTRACTOR_URL|COOKIE_SECURE=true|AUTH_DISABLED=false|ADMIN_USER_UUID=00000000-0000-0000-0000-000000000001|GOOGLE_OAUTH_CLIENT_ID=${_OAUTH_CLIENT_ID}|PUBLIC_URL=${_PUBLIC_URL}|FRONTEND_URL=${_FRONTEND_URL}" \
           --set-secrets="DATABASE_URL=esat-database-url:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest" \
           --add-cloudsql-instances=${_CLOUD_SQL_INSTANCE}
 

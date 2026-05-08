@@ -9,6 +9,7 @@ import { generate } from './routes/generate.js';
 import { exportRouter } from './routes/export.js';
 import { flags } from './routes/flags.js';
 import { auth } from './routes/auth.js';
+import { admin } from './routes/admin.js';
 import { files } from './routes/files.js';
 
 const app = express();
@@ -47,6 +48,7 @@ app.use('/api/v1/drafts', requireAuth, drafts);
 app.use('/api/v1/generate', requireAuth, generate);
 app.use('/api/v1/export', requireAuth, exportRouter);
 app.use('/api/v1/flags', requireAuth, flags);
+app.use('/api/v1/admin', requireAuth, admin);
 app.use('/files', requireAuth, files);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {

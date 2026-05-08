@@ -60,7 +60,12 @@ function buildQs(filter: QuestionFilter): URLSearchParams {
 }
 
 export const api = {
-  me: () => request<{ id: string; email: string; role: string }>('/api/v1/auth/me'),
+  me: () =>
+    request<{
+      id: string;
+      email: string;
+      role: 'admin' | 'teacher' | 'student';
+    }>('/api/v1/auth/me'),
 
   topics: (section?: SectionCode) =>
     request<{ data: Topic[] }>(
@@ -222,6 +227,43 @@ export const api = {
         include_cover: opts.include_cover ?? true,
       }),
     }),
+
+  admin: {
+    listUsers: () =>
+      request<{
+        users: {
+          id: string;
+          email: string;
+          display_name: string | null;
+          role: 'admin' | 'teacher' | 'student';
+          created_at: string;
+          last_login_at: string | null;
+        }[];
+        invites: {
+          email: string;
+          role: 'admin' | 'teacher' | 'student';
+          created_at: string;
+          added_by_email: string | null;
+        }[];
+      }>('/api/v1/admin/users'),
+    addInvite: (email: string, role: 'admin' | 'teacher' | 'student') =>
+      request<{ ok: true }>('/api/v1/admin/invites', {
+        method: 'POST',
+        body: JSON.stringify({ email, role }),
+      }),
+    removeInvite: (email: string) =>
+      request<{ ok: true }>(
+        `/api/v1/admin/invites/${encodeURIComponent(email)}`,
+        { method: 'DELETE' },
+      ),
+    setUserRole: (id: string, role: 'admin' | 'teacher' | 'student') =>
+      request<{ id: string; email: string; role: string }>(
+        `/api/v1/admin/users/${id}`,
+        { method: 'PATCH', body: JSON.stringify({ role }) },
+      ),
+    deleteUser: (id: string) =>
+      request<{ ok: true }>(`/api/v1/admin/users/${id}`, { method: 'DELETE' }),
+  },
 
   generate: (body: {
     name?: string;

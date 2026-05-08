@@ -7,6 +7,7 @@ import { Login } from './pages/Login';
 import { Edit } from './pages/Edit';
 import { Drafts } from './pages/Drafts';
 import { Generate } from './pages/Generate';
+import { Admin } from './pages/Admin';
 import { api } from './lib/api';
 
 export function App() {
@@ -32,6 +33,11 @@ export function App() {
           <NavLink to="/upload" className={navClass}>
             Upload
           </NavLink>
+          {me.data?.role === 'admin' && (
+            <NavLink to="/admin" className={navClass}>
+              Admin
+            </NavLink>
+          )}
         </nav>
         {me.data && (
           <div className="ml-auto flex items-center gap-3 text-sm">
@@ -60,6 +66,7 @@ export function App() {
           <Route path="/generate" element={<Generate />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/edit/:questionId" element={<Edit />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="/login" element={<Login />} />
         </Routes>
       </main>
