@@ -18,7 +18,7 @@ substitutions:
   _FRONTEND_URL: https://esat-frontend-6xudjnmxra-nw.a.run.app
   # Comma-separated allowlist for new-user signup. Existing users in the
   # users table always pass; this set only gates first-time logins.
-  _ALLOWED_EMAILS: cypherspace@gmail.com,rebecca.potter@ucs.org.uk,matthew.sammon@ucs.org.uk,simon.hoyle@ucs.org.uk,richard.wood@ucs.org.uk,peter.edmunds@ucs.org.uk,thomas.underwood@ucs.org.uk,tom.bradshaw@ucs.org.uk,fermina.marche@ucs.org.uk,niccolo.salvatori@ucs.org.uk,andrew.quirke@ucs.org.uk,joseph.peyser@ucs.org.uk,jade.root@ucs.org.uk
+  _ALLOWED_EMAILS: cypherspace@gmail.com,rebecca.potter@ucs.org.uk,matthew.sammon@ucs.org.uk,simon.hoyle@ucs.org.uk,richard.wood@ucs.org.uk,peter.edmunds@ucs.org.uk,thomas.underwood@ucs.org.uk,tom.bradshaw@ucs.org.uk,fermina.marche@ucs.org.uk,niccolo.salvatori@ucs.org.uk,andrew.quirke@ucs.org.uk,joseph.peyser@ucs.org.uk,jade.root@ucs.org.uk,nicola.coulter@ucs.org.uk,toby.brown@ucs.org.uk,sophie.prajapat@ucs.org.uk
 
 steps:
   # ---- build extractor ----
