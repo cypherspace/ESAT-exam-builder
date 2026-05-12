@@ -86,9 +86,26 @@ export function Builder() {
     },
   });
 
+  // Export takes the draft id explicitly so the save → export chain can
+  // pass through the freshly-created id when this is a brand-new draft.
   const exportDraft = useMutation({
-    mutationFn: () => api.exportDraft(draftId!),
+    mutationFn: (id: string) => api.exportDraft(id),
+    onSuccess: (out) => {
+      // Auto-open the QP in a new tab. The MS is exposed as an explicit
+      // link in the draft panel footer — browsers' popup blockers reject
+      // a second window.open() under the same gesture, which was
+      // silently dropping the QP and only surfacing the MS.
+      window.open(fileUrl(out.qp_uri), '_blank', 'noopener');
+    },
   });
+
+  // Save → export chain. Always saves first so unsaved edits in the
+  // current editor are reflected in the composed PDF; for new drafts,
+  // this is also where the draft id comes from.
+  const saveThenExport = async () => {
+    const saved = await save.mutateAsync();
+    exportDraft.mutate(saved.id);
+  };
 
   const addQuestion = (q: QuestionListItem) => {
     if (idsInDraft.has(q.id)) return;
@@ -307,7 +324,7 @@ export function Builder() {
           onClear={clearItems}
           onAddBlank={addBlank}
           onSave={() => save.mutate()}
-          onExport={() => exportDraft.mutate()}
+          onExport={saveThenExport}
           saving={save.isPending}
           savedId={draftId ?? null}
           exportPending={exportDraft.isPending}
@@ -486,10 +503,10 @@ function DraftPanel({
         <button
           className="rounded bg-white px-2 py-0.5 text-xs text-purple-900 hover:bg-slate-100 disabled:opacity-40"
           onClick={onExport}
-          disabled={!savedId || empty || exportPending}
-          title={!savedId ? 'Save the draft first' : empty ? 'Add questions first' : 'Export QP + MS PDFs'}
+          disabled={empty || exportPending || saving}
+          title={empty ? 'Add questions first' : 'Save + export QP + MS PDFs'}
         >
-          {exportPending ? 'Exporting…' : 'Export'}
+          {exportPending ? 'Exporting…' : 'Save + export'}
         </button>
       </header>
 
@@ -540,9 +557,24 @@ function DraftPanel({
           </span>
         )}
         {exportResult && (
-          <span className="ml-auto text-emerald-700">
-            Exported · QP + MS in{' '}
-            <span className="font-mono">{exportResult.qp_uri.split(/[\\/]/).slice(-2).join('/')}</span>
+          <span className="ml-auto flex items-center gap-3 text-emerald-700">
+            <span>Exported ·</span>
+            <a
+              className="underline hover:text-emerald-800"
+              href={fileUrl(exportResult.qp_uri)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open QP
+            </a>
+            <a
+              className="underline hover:text-emerald-800"
+              href={fileUrl(exportResult.ms_uri)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open MS
+            </a>
           </span>
         )}
       </footer>
