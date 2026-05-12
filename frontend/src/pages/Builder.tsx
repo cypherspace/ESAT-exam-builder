@@ -104,36 +104,50 @@ export function Builder() {
       mode: 'separate' | 'interleaved' | 'sequential';
       include_cover: boolean;
     }) => {
-      // Auto-save if the draft hasn't been persisted yet — the Export
-      // endpoint can only operate on a saved paper_drafts row. We pull
-      // the current items / name straight from local state so the user
-      // never has to think about the two-step Save → Export dance.
+      // Persist the current editor state before exporting. The Export
+      // endpoint reads from paper_drafts, so any unsaved reorders /
+      // additions / name tweaks would otherwise be silently dropped
+      // from the composed PDF. For a brand-new draft we create the
+      // row; for an existing one we patch it.
+      const body = {
+        name,
+        items: items.map((it) => it.item),
+        time_limit_minutes: timeLimit === '' ? null : Number(timeLimit),
+        instructions: instructions.trim() === '' ? null : instructions,
+      };
       let id = draftId;
       if (!id) {
-        const created = await api.createDraft({
-          name,
-          items: items.map((it) => it.item),
-          time_limit_minutes: timeLimit === '' ? null : Number(timeLimit),
-          instructions: instructions.trim() === '' ? null : instructions,
-        });
+        const created = await api.createDraft(body);
         id = created.id;
         qc.invalidateQueries({ queryKey: ['drafts'] });
         navigate(`/builder/${id}`, { replace: true });
+      } else {
+        await api.patchDraft(id, body);
+        qc.invalidateQueries({ queryKey: ['drafts'] });
+        qc.invalidateQueries({ queryKey: ['draft', id] });
       }
       return api.exportDraft(id, opts);
     },
-    onSuccess: (out) => {
+    onSuccess: async (out) => {
       // /files sends Content-Disposition: attachment for PDFs, so any
       // navigation to the URL triggers a download. window.open() is
       // unreliable here — browsers treat it as a popup when it fires
       // from an async fetch callback (the user-gesture has left the
-      // stack), so the second open() in 'separate' mode gets blocked
-      // even when the first slips through. A programmatic <a download>
-      // click is the documented browser-friendly way to start a
-      // download from JS without a popup-blocker hit.
+      // stack). A programmatic <a download> click is the documented
+      // browser-friendly way to start a download from JS.
+      //
+      // Even with <a download>, firing several clicks in the same tick
+      // hits Chrome's "multiple automatic downloads" throttle, which
+      // silently drops all but the last (i.e. 'separate' mode would
+      // produce only the MS). Spacing them by a few hundred ms is
+      // enough for Chrome / Edge / Firefox to treat each as a fresh
+      // user-initiated download.
       const downloads = [out.qp_uri, out.ms_uri, out.combined_uri]
         .filter((u): u is string => Boolean(u));
-      for (const uri of downloads) triggerDownload(fileUrl(uri));
+      for (let i = 0; i < downloads.length; i++) {
+        if (i > 0) await new Promise((r) => setTimeout(r, 300));
+        triggerDownload(fileUrl(downloads[i]!));
+      }
       setExportOpen(false);
     },
   });
